@@ -4,6 +4,7 @@ from icecream import ic
 
 from pycomm3 import CIPDriver, Services, DataTypes
 from pycomm3.exceptions import ResponseError, RequestError, CommError
+from pycomm3 import parse_connection_path
 
 from global_data import Entry_point
 
@@ -11,9 +12,11 @@ bp_all = set([])
 full_map = {}
 
 controlnet_module = 22
+flex_adapter = 37
 intellectual_module = (
     22,  # controlnet
-    166,  # ethernet
+    166, # ethernet
+    37,  # FlexIO CN adapter
 )
 plc_module = 93
 serial_unknown = 'FFFFFFFF'
@@ -46,7 +49,7 @@ def scan_bp(cip_path, format='', exclude_bp_sn=''):
               and values are tuples containing the module's path and a boolean indicating
               whether it's been scanned.
     """
-    print(f'{format}Scanning backplane at {cip_path}')
+    print(f'{format}Scanning BackPlane at {cip_path}')
 
     this_bp = {}
     this_bp_sn = serial_unknown
@@ -55,6 +58,7 @@ def scan_bp(cip_path, format='', exclude_bp_sn=''):
 
     # devices = []
 
+    _p = parse_connection_path(cip_path)
     driver = CIPDriver(cip_path)
     driver.open()
     for slot in range(14):
@@ -65,7 +69,10 @@ def scan_bp(cip_path, format='', exclude_bp_sn=''):
             modules_all.add(module_serial_number)
             module_product_code = device['product_code']
 
-            if module_product_code in intellectual_module or module_product_code == plc_module:  # controlnet or ethernet
+            if module_product_code == 37:
+                print(f'FlexIO at {cip_path}')
+
+            if module_product_code in intellectual_module or module_product_code == plc_module:  # controlnet, ethernet or processor
                 ic(f'Intelligent in slot {slot}')
                 p = f'{cip_path}/bp/{slot}'
                 plc_driver = CIPDriver(p)
@@ -79,7 +86,8 @@ def scan_bp(cip_path, format='', exclude_bp_sn=''):
                     # data_type=DataTypes.dint[10],
                     connected=False,
                     unconnected_send=True,
-                    route_path=True,
+                    route_path=True
+                    # route_path=f'bp/{slot}'
                 )
                 plc_driver.close()
                 bp_serial_current = ic(decode_serial_number(backplane_serial_number_raw.value))
@@ -108,7 +116,7 @@ def scan_bp(cip_path, format='', exclude_bp_sn=''):
 def scan_cn(cip_path, format='', exclude_bp_sn=''):
     cn_modules_paths = {}
     found_controlnet_nodes = []
-    print(f'Scaning {cip_path}...')
+    print(f'Scanning ControlNet {cip_path}...')
     for cnet_node_num in range(100):
         target = f'{cip_path}/{cnet_node_num}/bp/0'
         # print(f' Scan address {cnet_node_num}')
@@ -121,11 +129,12 @@ def scan_cn(cip_path, format='', exclude_bp_sn=''):
                     # print(f'Slot {slot}')
                     # print(device)
 
-                    if device['product_code'] == controlnet_module:
+                    if device['product_code'] == controlnet_module or device['product_code'] == flex_adapter:
                         print(f'ControlNet module at slot {cnet_node_num}/{slot}')
                         if not cnet_node_num in found_controlnet_nodes:
                             found_controlnet_nodes.append(cnet_node_num)
-                        cn_modules_paths[device['serial']] = f'{cip_path}/{cnet_node_num}/bp/0'
+                        cn_modules_paths[device['serial']] = f'{cip_path}/{cnet_node_num}/bp/{slot}'
+                        # cn_modules_paths[device['serial']] = f'{cip_path}/{cnet_node_num}/bp/0'
                         pass
                 except ResponseError:
                     pass
@@ -170,7 +179,9 @@ def discover(entry_point):
             if len(cn_nodes) > 1:
                 for cn_serial, cip_path in cn_nodes_paths.items():
                     bp_sn, bp, cn_path = scan_bp(cip_path)
-                    print(bp_sn, bp, cn_path)
+                    print(bp_sn)
+                    print(bp)
+                    print(cn_path)
 
     else:
         print(f'Single backplane system found')
@@ -180,7 +191,7 @@ def discover(entry_point):
 
 if __name__ == '__main__':
     print('Scanner lib standalone running')
-    # ic.disable()
+    ic.disable()
 
     test_entry = '11.80.18.1'
     discover(test_entry)
