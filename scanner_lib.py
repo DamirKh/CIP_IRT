@@ -5,8 +5,10 @@ from icecream import ic
 from pycomm3 import CIPDriver, Services, DataTypes
 from pycomm3.exceptions import ResponseError, RequestError, CommError
 from pycomm3 import parse_connection_path
+from pycomm3.logger import configure_default_logger
 
 from global_data import Entry_point
+from shassy import shassy_ident
 
 bp_all = set([])
 full_map = {}
@@ -52,6 +54,7 @@ def scan_bp(cip_path, format='', exclude_bp_sn=''):
     print(f'{format}Scanning BackPlane at {cip_path}')
 
     this_bp = {}
+    modules_in_bp = {}
     this_bp_sn = serial_unknown
     modules_all = set([])
     cn_modules_paths = {}
@@ -64,7 +67,7 @@ def scan_bp(cip_path, format='', exclude_bp_sn=''):
     for slot in range(14):
         try:
             device = driver.get_module_info(slot)
-            this_bp[slot] = ic(device)
+            modules_in_bp[slot] = ic(device)
             module_serial_number = device['serial']
             modules_all.add(module_serial_number)
             module_product_code = device['product_code']
@@ -78,19 +81,20 @@ def scan_bp(cip_path, format='', exclude_bp_sn=''):
                 plc_driver = CIPDriver(p)
                 plc_driver.open()
                 # https://www.plctalk.net/threads/rockwell-plc-chassis-serial-number-rs-logix.86426/
-                backplane_serial_number_raw = plc_driver.generic_message(
+                this_bp = plc_driver.generic_message(
                     service=Services.get_attributes_all,
                     class_code=0x66,
                     instance=0x1,
                     attribute=0x0,
-                    # data_type=DataTypes.dint[10],
+                    data_type=shassy_ident,
                     connected=False,
                     unconnected_send=True,
                     route_path=True
                     # route_path=f'bp/{slot}'
-                )
+                ).value
                 plc_driver.close()
-                bp_serial_current = ic(decode_serial_number(backplane_serial_number_raw.value))
+                bp_serial_current = f'{this_bp['serial_no']:0>8X}'
+                this_bp['serial_hex'] = bp_serial_current
                 if this_bp_sn == serial_unknown:
                     this_bp_sn = bp_serial_current
                 elif this_bp_sn != bp_serial_current:
@@ -110,7 +114,7 @@ def scan_bp(cip_path, format='', exclude_bp_sn=''):
 
     driver.close()
 
-    return this_bp_sn, this_bp, cn_modules_paths
+    return this_bp_sn, modules_in_bp, this_bp, cn_modules_paths
 
 
 def scan_cn(cip_path, format='', exclude_bp_sn=''):
@@ -169,19 +173,22 @@ def decode_serial_number(data):
 
 
 def discover(entry_point):
-    bp_sn, bp, cn_path = scan_bp(test_entry)
+    import pprint
+    p=pprint.pprint
+    bp_sn, modules, bp, cn_path = scan_bp(test_entry)
     assert type(cn_path) is dict
     if len(cn_path):
         # scan controlnet
         for cn_serial, cip_path in cn_path.items():
             cn_nodes, cn_nodes_paths = scan_cn(cip_path)
-            print(cn_nodes)
+            p(cn_nodes)
             if len(cn_nodes) > 1:
                 for cn_serial, cip_path in cn_nodes_paths.items():
-                    bp_sn, bp, cn_path = scan_bp(cip_path)
-                    print(bp_sn)
-                    print(bp)
-                    print(cn_path)
+                    bp_sn, modules, bp, cn_path = scan_bp(cip_path)
+                    p(bp_sn)
+                    p(modules)
+                    p(bp)
+                    p(cn_path)
 
     else:
         print(f'Single backplane system found')
@@ -191,9 +198,10 @@ def discover(entry_point):
 
 if __name__ == '__main__':
     print('Scanner lib standalone running')
+    # configure_default_logger(filename='/home/damir/pycomm3.log')
     ic.disable()
 
-    test_entry = '11.80.18.1'
+    test_entry = '192.168.0.123'
     discover(test_entry)
 
     pass
