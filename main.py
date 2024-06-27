@@ -63,6 +63,8 @@ class MainWindow(QWidget):
 
     def start_task(self):
         """Starts the worker thread and updates the label with progress."""
+        self.button.setEnabled(False)
+
         self.log = []
         self.log.append(f'Task started at {datetime.datetime.now()}')
 
@@ -73,7 +75,6 @@ class MainWindow(QWidget):
         self.worker.found_paths.connect(self.handle_found_paths)
         self.worker.start()
 
-        self.button.setEnabled(False)
 
     def handle_found_paths(self, paths):
         """Handles the list of discovered ControlNet paths."""

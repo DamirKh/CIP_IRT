@@ -6,7 +6,7 @@ from icecream import ic
 
 ic.disable()
 
-from pycomm3 import CIPDriver, Services, DataTypes, ClassCode, STRING
+from pycomm3 import CIPDriver, Services, DataTypes, ClassCode, STRING, Tag
 from pycomm3.exceptions import ResponseError, RequestError, CommError
 from pycomm3.custom_types import ModuleIdentityObject
 
@@ -40,17 +40,18 @@ class BackplaneSerialNumberMissmatch(Exception):
         super().__init__(f"Backplane SN {bp_serial_current} != {bp_serial_prev}")
 
 
-def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=print):
+def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn='', p=print):
     """
     Scans the Backplane by specified CIP path for modules and returns a dictionary
     mapping their serial numbers to their corresponding paths and whether they've been scanned.
 
+    apdate datas in global_data module
+
     Args:
+        :param format (str): this string will be added before every log message
         :param cip_path (str): The CIP path to scan.
         :param entry_point (bool): True if bp is entry point
         :param p (func): callback for progress update
-
-
 
 
     Returns:
@@ -65,7 +66,8 @@ def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=
     cn_modules_paths = {}
     this_flex_response = False
 
-    if entry_point:  # --------------------------------------------------------------------------- access to bp via eth
+    # ------------------------------------------------------------------------------------- access to bp via eth
+    if entry_point:
         p(f'Scanning entry point {cip_path}')
         backplane_size = 13
         current_slot = -1
@@ -116,12 +118,13 @@ def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=
             except CommError:
                 print()
                 raise f"Can't communicate to {cip_path}!"
-    else:  # -------------------------------------------------------------------------------------- access to bp via cn
+    # -------------------------------------------------------------------------------------- access to bp via cn
+    else:
         p(f'Scanning BackPlane at {cip_path}')
         try:
             with CIPDriver(f'{cip_path}') as temporary_driver:
                 # pprint(temporary_driver)
-                this_module_response = temporary_driver.generic_message(
+                this_module_response: Tag = temporary_driver.generic_message(
                     service=Services.get_attributes_all,
                     class_code=0x1,
                     instance=0x1,
@@ -168,13 +171,20 @@ def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=
                         name="flex_modules_info",
                     )
                     p(f'{format}Flex adapter at {cip_path}')
-                    # pprint(this_flex_response.value)
+                    pprint(this_flex_response.value)
+                    # b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules
+                    # b'\x01\x00\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # IB32 module
+                    # b'\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # OB32 module
         except CommError:
             print()
             raise CommError(f"Can't communicate to {cip_path}!")
 
-    if not this_bp or this_flex_response:
-        return this_flex_response.value
+    if this_flex_response:
+        global_data.cn_flex[this_module['serial']] = {
+            'adapter': this_module,
+            'modules': this_flex_response.value
+        }
+        return this_module
 
     this_bp_sn = this_bp['serial']
     global_data.bp[this_bp_sn] = {
@@ -183,8 +193,8 @@ def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=
 
     for slot in range(this_bp['size']):
         try:
-            this_module_path = f'{cip_path}/bp/{slot}'
-            driver = CIPDriver(this_module_path)
+            this_module_path: str = f'{cip_path}/bp/{slot}'
+            driver: CIPDriver = CIPDriver(this_module_path)
             driver.open()
 
             this_module_response = driver.generic_message(
@@ -221,20 +231,26 @@ def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=
                     cn_modules_paths[module_serial_number] = f'{cip_path}/bp/{slot}/cnet'
 
             # Requests the name of the program running in the PLC. Uses KB `23341`_ for implementation.
-            if module_product_code in plc_module:
+            if this_module['product_type'] == "Programmable Logic Controller":
                 try:
-                    response = driver.generic_message(
+                    response: Tag = driver.generic_message(
                         service=Services.get_attributes_all,
                         class_code=ClassCode.program_name,
                         instance=1,
                         data_type=STRING,
+                        connected=False,
+                        unconnected_send=True,
+                        route_path=True,
                         name="get_plc_name",
                     )
                     if not response:
                         raise ResponseError(f"response did not return valid data - {response.error}")
 
                     this_module["name"] = response.value
-                    p(f'+  <-- {response.value}')
+                    if not len(response.value):
+                        p(f'+  <-- program not loaded')
+                    else:
+                        p(f'+  <-- program: {response.value}')
                 except Exception as err:
                     pass
                     # this_module["name"] = None

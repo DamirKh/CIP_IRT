@@ -2,6 +2,8 @@ from icecream import ic
 from PyQt6.QtCore import QThread, pyqtSignal
 from scanner_lib import scan_cn, scan_bp
 
+import global_data
+
 
 class Scaner(QThread):
     """A scanner thread to perform modules scan"""
@@ -30,6 +32,7 @@ class Scaner(QThread):
 
 
     def run(self):
+        global_data.flush()
         ep = scan_bp(cip_path=self.entry_point, entry_point=True, format='   ', p=self._progress_update)
         bp_sn, modules, bp, cn_path = ep
 
