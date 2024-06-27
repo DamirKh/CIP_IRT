@@ -3,16 +3,17 @@ from pprint import pprint
 import time
 
 from icecream import ic
+
 ic.disable()
 
-from pycomm3 import CIPDriver, Services, DataTypes
+from pycomm3 import CIPDriver, Services, DataTypes, ClassCode, STRING
 from pycomm3.exceptions import ResponseError, RequestError, CommError
 from pycomm3.custom_types import ModuleIdentityObject
 
 from pycomm3 import parse_connection_path
 from pycomm3.logger import configure_default_logger
 
-from global_data import Entry_point
+import global_data
 from shassy import shassy_ident
 
 bp_all = set([])
@@ -21,7 +22,7 @@ full_map = {}
 controlnet_module = 22
 flex_adapter = 37
 ethernet_module = 166
-plc_module = 93
+plc_module = 93, 94
 serial_unknown = 'FFFFFFFF'
 
 
@@ -64,7 +65,7 @@ def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=
     cn_modules_paths = {}
     this_flex_response = False
 
-    if entry_point:
+    if entry_point:  # --------------------------------------------------------------------------- access to bp via eth
         p(f'Scanning entry point {cip_path}')
         backplane_size = 13
         current_slot = -1
@@ -105,30 +106,30 @@ def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=
                             pass
                         else:
                             this_bp = this_bp_response.value
-                            this_bp['serial_hex'] = f'{this_bp['serial_no']:0>8x}'
+                            this_bp['serial'] = f'{this_bp['serial_no']:0>8x}'
                             backplane_size = this_bp['size']
                             p(f'BackPlane:')
                             p(this_bp)
                     # store module info
-                    modules_in_bp[current_slot] = ic(epm)
+                    # modules_in_bp[current_slot] = ic(epm['serial'])
 
             except CommError:
                 print()
                 raise f"Can't communicate to {cip_path}!"
-    else:
+    else:  # -------------------------------------------------------------------------------------- access to bp via cn
         p(f'Scanning BackPlane at {cip_path}')
         try:
             with CIPDriver(f'{cip_path}') as temporary_driver:
-                pprint(temporary_driver)
+                # pprint(temporary_driver)
                 this_module_response = temporary_driver.generic_message(
-                        service=Services.get_attributes_all,
-                        class_code=0x1,
-                        instance=0x1,
-                        connected=False,
-                        unconnected_send=True,
-                        route_path=True,
-                        name='Who'
-                    )
+                    service=Services.get_attributes_all,
+                    class_code=0x1,
+                    instance=0x1,
+                    connected=False,
+                    unconnected_send=True,
+                    route_path=True,
+                    name='Who'
+                )
                 if this_module_response:
                     this_module = ModuleIdentityObject.decode(this_module_response.value)
                 else:
@@ -150,7 +151,10 @@ def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=
                         pass
                     else:
                         this_bp = this_bp_response.value
-                        this_bp['serial_hex'] = f'{this_bp['serial_no']:0>8x}'
+                        this_bp['serial'] = f'{this_bp['serial_no']:0>8x}'
+                        # global_data.bp[this_bp['serial']] = {
+                        #     'bp': this_bp,
+                        # }
 
                 if this_module['product_code'] in (flex_adapter,):
                     this_flex_response = temporary_driver.generic_message(
@@ -172,13 +176,11 @@ def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=
     if not this_bp or this_flex_response:
         return this_flex_response.value
 
-    this_bp_sn = this_bp['serial_hex']
+    this_bp_sn = this_bp['serial']
+    global_data.bp[this_bp_sn] = {
+        'bp': this_bp,
+    }
 
-    # devices = []
-
-    # _p = parse_connection_path(cip_path)
-    # driver = CIPDriver(cip_path)
-    # driver.open()
     for slot in range(this_bp['size']):
         try:
             this_module_path = f'{cip_path}/bp/{slot}'
@@ -194,41 +196,66 @@ def scan_bp(cip_path, entry_point: bool = False, format='', exclude_bp_sn='', p=
                 route_path=True,
                 name='Who'
             )
-            driver.close()
+            # driver.close()
             if this_module_response:
                 this_module = ModuleIdentityObject.decode(this_module_response.value)
-                p(f"{format}Slot {slot:02} = [{this_module['serial']}] {this_module['product_name']}" )
+                p(f"{format}Slot {slot:02} = [{this_module['serial']}] {this_module['product_name']}")
+                modules_in_bp[slot] = ic(this_module['serial'])
+
             else:
                 p(f'{format}Slot {slot:02} = EMPTY')
+                modules_in_bp[slot] = None
+
                 continue
 
-            modules_in_bp[slot] = ic(this_module)
             module_serial_number = this_module['serial']
             modules_all.add(module_serial_number)
             module_product_code = this_module['product_code']
 
             if module_product_code == controlnet_module:
-                p(f'{format}    (controlnet in slot {slot})')
+                # p(f'+  <-- (controlnet in slot {slot})')  # moved down
                 if entry_point:
+                    p(f'+  <-- (controlnet module in slot {slot}. The way to access ControlNet)')
+                    #  only CN modules in entry point's backplane will be scanned in future
+                    #  this is the main limitation
                     cn_modules_paths[module_serial_number] = f'{cip_path}/bp/{slot}/cnet'
 
-        except  ResponseError:
-            p(f'no module in slot {slot} or no slot')
+            # Requests the name of the program running in the PLC. Uses KB `23341`_ for implementation.
+            if module_product_code in plc_module:
+                try:
+                    response = driver.generic_message(
+                        service=Services.get_attributes_all,
+                        class_code=ClassCode.program_name,
+                        instance=1,
+                        data_type=STRING,
+                        name="get_plc_name",
+                    )
+                    if not response:
+                        raise ResponseError(f"response did not return valid data - {response.error}")
+
+                    this_module["name"] = response.value
+                    p(f'+  <-- {response.value}')
+                except Exception as err:
+                    pass
+                    # this_module["name"] = None
+
+        except ResponseError:
+            p(f'{format} !!! Module in slot {slot} may be broken')
+            modules_in_bp[slot] = None
             continue
         except CommError:
-            p(f'no module in slot {slot} or no slot')
+            p(f'{format} !!! Module in slot {slot} may be broken')
+            modules_in_bp[slot] = None
             continue
-        # except AlreadyScanned:
-        #     ic(f'Backplane {discovered_bp_sn} has already been scanned. Skip it')
-        #     skip_this_bp = True
-        #     break
+        global_data.module[this_module['serial']] = this_module
+        driver.close()
 
-    driver.close()
+    global_data.bp[this_bp_sn].update(modules_in_bp)
 
     return this_bp_sn, modules_in_bp, this_bp, cn_modules_paths
 
 
-def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update = None):
+def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update=None):
     if current_cn_node_update:
         cn_node_updt = current_cn_node_update
     else:
@@ -241,7 +268,7 @@ def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_upda
     for cnet_node_num in range(100):
         target = f'{cip_path}/{cnet_node_num}'
         cn_node_updt(f'{cnet_node_num:02}')
-        time.sleep(0.02)
+        # time.sleep(0.02)
 
         # print(f' Scan address {cnet_node_num}')
         try:
@@ -267,7 +294,7 @@ def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_upda
                 m = ModuleIdentityObject.decode(cn_module.value)
                 # p(m)
                 found_controlnet_nodes.append(cnet_node_num)
-                cn_modules_paths[m['serial']]=target
+                cn_modules_paths[m['serial']] = target
             driver.close()
         except ResponseError:
             # print('.', end='')
@@ -280,7 +307,7 @@ def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_upda
 
 def discover(entry_point):
     import pprint
-    p=pprint.pprint
+    p = pprint.pprint
     ep = scan_bp(test_entry, entry_point=True)
     bp_sn, modules, bp, cn_path = ep
     assert type(cn_path) is dict
@@ -300,7 +327,6 @@ def discover(entry_point):
     else:
         print(f'Single backplane system found')
         pass
-
 
 
 if __name__ == '__main__':

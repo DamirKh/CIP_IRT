@@ -8,6 +8,8 @@ from PyQt6.QtGui import QRegularExpressionValidator
 from scanner import Scaner
 from ip_addr_widget import IPAddressWidget
 
+import global_data
+
 
 class MainWindow(QWidget):
     """Main window with a button to trigger the long task."""
@@ -82,7 +84,10 @@ class MainWindow(QWidget):
     def update_progress(self, value: str):
         """Updates the label with the progress value."""
         if len(value):
-            self.log.append(value)
+            if value.startswith('+'):  # add some to prevision string
+                self.log[-1] += value[1:]
+            else:
+                self.log.append(value)  # add new string
         t = '\r'.join(self.log)
         self.label.setText(t)
         # Scroll to the end
