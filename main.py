@@ -16,7 +16,7 @@ class MainWindow(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Non-Freezing App")
+        self.setWindowTitle("Add new entry point")
 
         self.ip_widget = IPAddressWidget()
         self.ip_widget.ip_input.textChanged.connect(self.validate_ip)  # Connect to validate_ip
@@ -34,7 +34,7 @@ class MainWindow(QWidget):
 
         self.label = QTextEdit()
         self.label.setReadOnly(True)
-        self.button = QPushButton("Start Long Task")
+        self.button = QPushButton("Start scan")
         self.button.clicked.connect(self.start_task)
 
         layout = QVBoxLayout()
@@ -52,12 +52,8 @@ class MainWindow(QWidget):
 
     def validate_ip(self):
         """Validate the IP address and enable/disable the button."""
-        ip = self.ip_widget.get_ip()
-        if ip:
-            if self.ip_widget.validator.validate(ip, 0)[0] == QRegularExpressionValidator.State.Acceptable:
-                self.button.setEnabled(True)  # Enable button if valid
-            else:
-                self.button.setEnabled(False)  # Disable button if invalid
+        if self.ip_widget.valid:
+            self.button.setEnabled(True)  # Enable button if valid
         else:
             self.button.setEnabled(False)  # Disable button if empty
 
@@ -72,13 +68,15 @@ class MainWindow(QWidget):
         self.worker.progress.connect(self.update_progress)
         self.worker.cn_node_current.connect(self._update_cn_node_current)
         self.worker.finished.connect(self.task_finished)
-        self.worker.found_paths.connect(self.handle_found_paths)
+        self.worker.communication_error.connect(self.handle_communication_error)
+        # try:
         self.worker.start()
+        # except CommError
 
 
-    def handle_found_paths(self, paths):
+    def handle_communication_error(self, err):
         """Handles the list of discovered ControlNet paths."""
-        self.log.append(f'Found ControlNet paths: {paths}')
+        self.log.append(f'!!! Communication error: {err}')
         self.label.setText('\r'.join(self.log))
         # Now you can use 'paths' to trigger additional scans
 

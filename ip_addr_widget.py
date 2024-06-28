@@ -19,6 +19,8 @@ class IPAddressWidget(QWidget):
         self.ip_label = QLabel("Enter IP Address:")
         self.ip_input = QLineEdit()
 
+        self._valid = False
+
         # Create the validator from the regular expression
         regex = QRegularExpression(
             r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
@@ -39,11 +41,18 @@ class IPAddressWidget(QWidget):
         if ip:
             if self.validator.validate(ip, 0)[0] == QRegularExpressionValidator.State.Acceptable:  # Use QRegularExpressionValidator.State
                 self.ip_input.setStyleSheet("background-color: lightgreen;")
+                self._valid = True
             else:
                 self.ip_input.setStyleSheet("background-color: lightcoral;")
+                self._valid = False
         else:
             self.ip_input.setStyleSheet("background-color: lightcoral;")
+            self._valid = False
             # self.ip_input.setStyleSheet("")
+
+    @property
+    def valid(self):
+        return self._valid
 
     def get_ip(self):
         return self.ip_input.text()

@@ -116,8 +116,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                     # modules_in_bp[current_slot] = ic(epm['serial'])
 
             except CommError:
-                print()
-                raise f"Can't communicate to {cip_path}!"
+                raise CommError(f"Can't communicate to {cip_path}!")
     # -------------------------------------------------------------------------------------- access to bp via cn
     else:
         p(f'Scanning BackPlane at {cip_path}')
