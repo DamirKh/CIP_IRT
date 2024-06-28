@@ -3,7 +3,6 @@ import time, datetime
 
 from PyQt6.QtGui import QTextCursor, QFont
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QTextEdit, QCheckBox, QHBoxLayout
-from PyQt6.QtGui import QRegularExpressionValidator
 
 from scanner import Scaner
 from ip_addr_widget import IPAddressWidget
