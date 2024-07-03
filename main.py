@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLay
 from scanner import Scaner
 from ip_addr_widget import IPAddressWidget
 
-import global_data
+from global_data import global_data
 
 
 class MainWindow(QWidget):
@@ -102,6 +102,7 @@ class MainWindow(QWidget):
         cursor = self.label.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         self.label.setTextCursor(cursor)
+        global_data.store_data()
 
 
 if __name__ == '__main__':

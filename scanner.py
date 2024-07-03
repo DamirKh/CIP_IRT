@@ -2,7 +2,7 @@ from icecream import ic
 from PyQt6.QtCore import QThread, pyqtSignal
 from scanner_lib import scan_cn, scan_bp, CommError
 
-import global_data
+from global_data import global_data
 
 
 class Scaner(QThread):

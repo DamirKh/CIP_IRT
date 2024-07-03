@@ -13,7 +13,8 @@ from pycomm3.custom_types import ModuleIdentityObject
 from pycomm3 import parse_connection_path
 from pycomm3.logger import configure_default_logger
 
-import global_data
+from global_data import global_data
+
 from shassy import shassy_ident
 
 bp_all = set([])
@@ -271,9 +272,9 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
 
 
 def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update=None):
-    if current_cn_node_update:
+    if current_cn_node_update: # ---------------------------------------------logging function
         cn_node_updt = current_cn_node_update
-    else:
+    else: # ----------------------------------------------------------------NO logging funtion
         def cn_node_updt(*args, **kwargs):
             pass
 
@@ -293,8 +294,6 @@ def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_upda
                 service=Services.get_attributes_all,
                 class_code=0x1,
                 instance=0x1,
-                # attribute=0x0,
-                # data_type=shassy_ident,
                 connected=False,
                 unconnected_send=True,
                 route_path=True,
@@ -347,7 +346,7 @@ def discover(entry_point):
 if __name__ == '__main__':
     print('Scanner lib standalone running')
     ic.enable()
-    # configure_default_logger(filename='/home/damir/pycomm3.log')
+    configure_default_logger(filename='/home/damir/pycomm3.log')
 
     test_entry = '192.168.0.123'
     discover(test_entry)
