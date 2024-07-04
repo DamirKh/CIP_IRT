@@ -3,3 +3,6 @@
 /tmp3.py
 /global.data
 /tmp5.py
+/.idea/
+*.geany
+__pycache__/

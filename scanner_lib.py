@@ -194,6 +194,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
         }
         return this_module
 
+    this_bp['serial'] = this_bp.get('serial', str(serial_unknown))  # do nothing if bp serial set
     this_bp_sn = this_bp.get('serial', str(serial_unknown))  # may be overkill for unknown serial
     global_data.bp[this_bp_sn] = {
         'bp': this_bp,
@@ -202,6 +203,8 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
     p(this_bp)
 
     for slot in range(this_bp.get('size', 14)):
+        if cip_path == '11.100.40.1/bp/3/cnet/2' and slot == 0:
+            pass  # trap for debug. edit string above and set breakpoint here
         try:
             this_module_path: str = f'{cip_path}/bp/{slot}'
             driver: CIPDriver = CIPDriver(this_module_path)
@@ -216,7 +219,29 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                 route_path=True,
                 name='Who'
             )
-            # driver.close()
+            if this_module_response.error and this_module_response.value == b'\x18\x03\x01\x00':  # empiric way
+                # some CN modules does not respond to message via long path with bp
+                driver.close()
+                try:
+                    this_module_path: str = f'{cip_path}'  # strip /bp/{slot} part
+                    driver: CIPDriver = CIPDriver(this_module_path)
+                    driver.open()
+
+                    this_module_response = driver.generic_message(
+                        service=Services.get_attributes_all,
+                        class_code=0x1,
+                        instance=0x1,
+                        connected=False,
+                        unconnected_send=True,
+                        route_path=True,
+                        name='Who'
+                    )
+                except ResponseError:
+                    pass  # no way
+                except CommError:
+                    pass  # nothing to do
+                pass
+
             if this_module_response:
                 this_module = ModuleIdentityObject.decode(this_module_response.value)
                 p(f"{format}Slot {slot:02} = [{this_module['serial']}] {this_module['product_name']}")
