@@ -91,7 +91,8 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                         epm = ModuleIdentityObject.decode(entry_point_module.value)
                     else:
                         continue
-                    if epm['product_code'] in (ethernet_module, controlnet_module, plc_module) and not this_bp:
+                    if not this_bp:
+                    # if epm['product_code'] in (ethernet_module, controlnet_module, plc_module) and not this_bp:
                         # no bp info yet
                         # https://www.plctalk.net/threads/rockwell-plc-chassis-serial-number-rs-logix.86426/
                         this_bp_response = temporary_driver.generic_message(
