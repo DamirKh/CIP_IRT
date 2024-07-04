@@ -27,6 +27,8 @@ ethernet_module = 166
 plc_module = 93, 94
 serial_unknown = serial_generator.SerialGenerator()
 
+long_path_error_values = b'\x18\x03\x01\x00',  b'\x18\x03\x02\x00'  # empiric way
+
 
 class AlreadyScanned(Exception):
     """Custom exception to indicate a backplane has already been scanned."""
@@ -203,7 +205,8 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
     p(this_bp)
 
     for slot in range(this_bp.get('size', 14)):
-        if cip_path == '11.100.40.1/bp/3/cnet/2' and slot == 0:
+        _cn_here = False
+        if cip_path == '11.100.40.1/bp/3/cnet/1' and slot == 3:
             pass  # trap for debug. edit string above and set breakpoint here
         try:
             this_module_path: str = f'{cip_path}/bp/{slot}'
@@ -219,8 +222,9 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                 route_path=True,
                 name='Who'
             )
-            if this_module_response.error and this_module_response.value == b'\x18\x03\x01\x00':  # empiric way
+            if this_module_response.error and this_module_response.value in long_path_error_values:
                 # some CN modules does not respond to message via long path with bp
+                _cn_here = cip_path.split('/')[-1]
                 driver.close()
                 try:
                     this_module_path: str = f'{cip_path}'  # strip /bp/{slot} part
@@ -242,8 +246,11 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                     pass  # nothing to do
                 pass
 
-            if this_module_response:
+            if this_module_response:  # this block executed for every real module
                 this_module = ModuleIdentityObject.decode(this_module_response.value)
+                this_module["path"] = this_module_path
+                if _cn_here:
+                    this_module['CN_ADDR'] = _cn_here
                 p(f"{format}Slot {slot:02} = [{this_module['serial']}] {this_module['product_name']}")
                 modules_in_bp[slot] = ic(this_module['serial'])
 
