@@ -20,7 +20,7 @@ from shassy import shassy_ident
 bp_all = set([])
 full_map = {}
 
-controlnet_module = 22
+controlnet_module = 22, 7
 flex_adapter = 37
 ethernet_module = 166
 plc_module = 93, 94
@@ -92,7 +92,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                     else:
                         continue
                     if not this_bp:
-                    # if epm['product_code'] in (ethernet_module, controlnet_module, plc_module) and not this_bp:
+                        # if epm['product_code'] in (ethernet_module, controlnet_module, plc_module) and not this_bp:
                         # no bp info yet
                         # https://www.plctalk.net/threads/rockwell-plc-chassis-serial-number-rs-logix.86426/
                         this_bp_response = temporary_driver.generic_message(
@@ -107,6 +107,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                         )
                         if this_bp_response.error:
                             # BackPlane response not supported
+                            p(f"Can't get backplane info via {cip_path}/bp/{current_slot}")
                             pass
                         else:
                             this_bp = this_bp_response.value
@@ -139,7 +140,8 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                 else:
                     raise CommError(f"Can't complete WHO request to {cip_path}")
 
-                if this_module['product_code'] in (controlnet_module,):
+                # here we've got controlnet module by full cip path via controlnet
+                if this_module['product_code'] in controlnet_module:
                     this_bp_response = temporary_driver.generic_message(
                         service=Services.get_attributes_all,
                         class_code=0x66,
@@ -152,6 +154,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                     )
                     if this_bp_response.error:
                         # BackPlane response not supported
+                        # need to generate some ID for  backplane
                         pass
                     else:
                         this_bp = this_bp_response.value
@@ -187,12 +190,12 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
         }
         return this_module
 
-    this_bp_sn = this_bp['serial']
+    this_bp_sn = this_bp.get('serial', serial_unknown)
     global_data.bp[this_bp_sn] = {
         'bp': this_bp,
     }
 
-    for slot in range(this_bp['size']):
+    for slot in range(this_bp.get('size', 14)):
         try:
             this_module_path: str = f'{cip_path}/bp/{slot}'
             driver: CIPDriver = CIPDriver(this_module_path)
@@ -223,7 +226,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
             modules_all.add(module_serial_number)
             module_product_code = this_module['product_code']
 
-            if module_product_code == controlnet_module:
+            if module_product_code in controlnet_module:
                 # p(f'+  <-- (controlnet in slot {slot})')  # moved down
                 if entry_point:
                     p(f'+  <-- (controlnet module in slot {slot}. The way to access ControlNet)')
@@ -273,16 +276,16 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
 
 
 def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update=None):
-    if current_cn_node_update: # ---------------------------------------------logging function
+    if current_cn_node_update:  # ---------------------------------------------logging function
         cn_node_updt = current_cn_node_update
-    else: # ----------------------------------------------------------------NO logging funtion
+    else:  # ----------------------------------------------------------------NO logging funtion
         def cn_node_updt(*args, **kwargs):
             pass
 
     cn_modules_paths = {}
     found_controlnet_nodes = []
     p(f'Scanning ControlNet {cip_path}...')
-    for cnet_node_num in range(100):
+    for cnet_node_num in range(10):  # 100 for production
         target = f'{cip_path}/{cnet_node_num}'
         cn_node_updt(f'{cnet_node_num:02}')
         # time.sleep(0.02)

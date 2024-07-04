@@ -19,6 +19,7 @@ from PyQt6 import QtGui
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize
 
+from global_data import global_data
 
 class DataPreviewWidget(QWidget):
     def __init__(self, data, parent=None):
@@ -287,7 +288,11 @@ if __name__ == "__main__":
 
 
     # Sample data
-    data = generate_test_data(num_rows=10000, num_cols=20, max_string_length=2)  # Generate 10 rows, 10 columns
+    # data = generate_test_data(num_rows=10000, num_cols=20, max_string_length=2)  # Generate 10 rows, 10 columns
+
+    # load data
+    global_data.restore_data()
+    data = pd.DataFrame.from_dict(global_data.module, orient='index')
 
     preview_widget = DataPreviewWidget(data)
     preview_widget.show()
