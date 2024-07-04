@@ -16,6 +16,7 @@ from pycomm3.logger import configure_default_logger
 from global_data import global_data
 
 from shassy import shassy_ident
+import serial_generator
 
 bp_all = set([])
 full_map = {}
@@ -24,7 +25,7 @@ controlnet_module = 22, 7
 flex_adapter = 37
 ethernet_module = 166
 plc_module = 93, 94
-serial_unknown = 'FFFFFFFF'
+serial_unknown = serial_generator.SerialGenerator()
 
 
 class AlreadyScanned(Exception):
@@ -108,11 +109,12 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                         if this_bp_response.error:
                             # BackPlane response not supported
                             p(f"Can't get backplane info via {cip_path}/bp/{current_slot}")
+                            this_bp['serial'] = str(serial_unknown)
                             pass
                         else:
                             this_bp = this_bp_response.value
                             this_bp['serial'] = f'{this_bp['serial_no']:0>8x}'
-                            backplane_size = this_bp['size']
+                            backplane_size = this_bp.get('size', 20)
                             p(f'BackPlane:')
                             p(this_bp)
                     # store module info
@@ -153,8 +155,10 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                         route_path=True
                     )
                     if this_bp_response.error:
-                        # BackPlane response not supported
+                        # BackPlane response not supported. May be an old CN module o BP
                         # need to generate some ID for  backplane
+                        # this_bp['serial'] = str(serial_unknown)
+
                         pass
                     else:
                         this_bp = this_bp_response.value
@@ -190,10 +194,12 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
         }
         return this_module
 
-    this_bp_sn = this_bp.get('serial', serial_unknown)
+    this_bp_sn = this_bp.get('serial', str(serial_unknown))  # may be overkill for unknown serial
     global_data.bp[this_bp_sn] = {
         'bp': this_bp,
     }
+    p('Backpane')
+    p(this_bp)
 
     for slot in range(this_bp.get('size', 14)):
         try:
@@ -227,7 +233,6 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
             module_product_code = this_module['product_code']
 
             if module_product_code in controlnet_module:
-                # p(f'+  <-- (controlnet in slot {slot})')  # moved down
                 if entry_point:
                     p(f'+  <-- (controlnet module in slot {slot}. The way to access ControlNet)')
                     #  only CN modules in entry point's backplane will be scanned in future

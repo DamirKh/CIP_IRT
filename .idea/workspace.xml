@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9fe3b4df-f58a-466f-b4d6-8b82b8bf6623" name="Changes" comment="added scaner_lib&#10;added backplane_serial_number">
+    <list default="true" id="9fe3b4df-f58a-466f-b4d6-8b82b8bf6623" name="Changes" comment="minor changes to scanner_lib.py&#10;preview data loads real data">
+      <change afterPath="$PROJECT_DIR$/serial_generator.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/preview_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/preview_data.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scanner_lib.py" beforeDir="false" afterPath="$PROJECT_DIR$/scanner_lib.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -24,7 +24,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="dev_0" />
+        <entry key="$PROJECT_DIR$" value="master" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -47,7 +47,7 @@
     &quot;Python.tmp.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;
+    &quot;git-widget-placeholder&quot;: &quot;bugfix-nobpsn&quot;
   }
 }</component>
   <component name="RunManager">
@@ -105,7 +105,15 @@
       <option name="project" value="LOCAL" />
       <updated>1718602057915</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="minor changes to scanner_lib.py&#10;preview data loads real data">
+      <option name="closed" value="true" />
+      <created>1720087397013</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1720087397017</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -122,7 +130,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="first commit" />
     <MESSAGE value="added scaner_lib&#10;added backplane_serial_number" />
-    <option name="LAST_COMMIT_MESSAGE" value="added scaner_lib&#10;added backplane_serial_number" />
+    <MESSAGE value="minor changes to scanner_lib.py&#10;preview data loads real data" />
+    <option name="LAST_COMMIT_MESSAGE" value="minor changes to scanner_lib.py&#10;preview data loads real data" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
