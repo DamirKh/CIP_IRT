@@ -8,14 +8,14 @@ ic.disable()
 
 from pycomm3 import CIPDriver, Services, DataTypes, ClassCode, STRING, Tag
 from pycomm3.exceptions import ResponseError, RequestError, CommError
-from pycomm3.custom_types import ModuleIdentityObject
+# from pycomm3.custom_types import ModuleIdentityObject
 
 from pycomm3 import parse_connection_path
 from pycomm3.logger import configure_default_logger
 
 from global_data import global_data
 
-from shassy import shassy_ident
+from shassy import shassy_ident, MyModuleIdentityObject
 import serial_generator
 
 bp_all = set([])
@@ -91,7 +91,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                         name='Who'
                     )
                     if entry_point_module:
-                        epm = ModuleIdentityObject.decode(entry_point_module.value)
+                        epm = MyModuleIdentityObject.decode(entry_point_module.value)
                     else:
                         continue
                     if not this_bp:
@@ -140,7 +140,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                     name='Who'
                 )
                 if this_module_response:
-                    this_module = ModuleIdentityObject.decode(this_module_response.value)
+                    this_module = MyModuleIdentityObject.decode(this_module_response.value)
                 else:
                     raise CommError(f"Can't complete WHO request to {cip_path}")
 
@@ -209,7 +209,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
         if cip_path == '11.100.40.1/bp/3/cnet/1' and slot == 3:
             pass  # trap for debug. edit string above and set breakpoint here
         try:
-            this_module_path: str = f'{cip_path}/bp/{slot}'
+            _long_path = this_module_path = f'{cip_path}/bp/{slot}'
             driver: CIPDriver = CIPDriver(this_module_path)
             driver.open()
 
@@ -247,8 +247,8 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                 pass
 
             if this_module_response:  # this block executed for every real module
-                this_module = ModuleIdentityObject.decode(this_module_response.value)
-                this_module["path"] = this_module_path
+                this_module = MyModuleIdentityObject.decode(this_module_response.value)
+                this_module["path"] = _long_path
                 if _cn_here:
                     this_module['CN_ADDR'] = _cn_here
                 p(f"{format}Slot {slot:02} = [{this_module['serial']}] {this_module['product_name']}")
@@ -346,7 +346,7 @@ def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_upda
                 pass
             else:
                 p(f'{format} found node [{cnet_node_num:02}]')
-                m = ModuleIdentityObject.decode(cn_module.value)
+                m = MyModuleIdentityObject.decode(cn_module.value)
                 # p(m)
                 found_controlnet_nodes.append(cnet_node_num)
                 cn_modules_paths[m['serial']] = target
