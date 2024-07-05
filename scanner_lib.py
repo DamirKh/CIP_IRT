@@ -8,14 +8,13 @@ ic.disable()
 
 from pycomm3 import CIPDriver, Services, DataTypes, ClassCode, STRING, Tag
 from pycomm3.exceptions import ResponseError, RequestError, CommError
-# from pycomm3.custom_types import ModuleIdentityObject
 
-from pycomm3 import parse_connection_path
 from pycomm3.logger import configure_default_logger
 
 from global_data import global_data
 
 from shassy import shassy_ident, MyModuleIdentityObject
+import cip_request
 import serial_generator
 
 bp_all = set([])
@@ -81,15 +80,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                 with CIPDriver(f'{cip_path}/bp/{current_slot}') as temporary_driver:
                     # p(temporary_driver)
 
-                    entry_point_module = temporary_driver.generic_message(
-                        service=Services.get_attributes_all,
-                        class_code=0x1,
-                        instance=0x1,
-                        connected=False,
-                        unconnected_send=True,
-                        route_path=True,
-                        name='Who'
-                    )
+                    entry_point_module = temporary_driver.generic_message(**cip_request.who)
                     if entry_point_module:
                         epm = MyModuleIdentityObject.decode(entry_point_module.value)
                     else:
@@ -98,16 +89,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                         # if epm['product_code'] in (ethernet_module, controlnet_module, plc_module) and not this_bp:
                         # no bp info yet
                         # https://www.plctalk.net/threads/rockwell-plc-chassis-serial-number-rs-logix.86426/
-                        this_bp_response = temporary_driver.generic_message(
-                            service=Services.get_attributes_all,
-                            class_code=0x66,
-                            instance=0x1,
-                            attribute=0x0,
-                            data_type=shassy_ident,
-                            connected=False,
-                            unconnected_send=True,
-                            route_path=True
-                        )
+                        this_bp_response = temporary_driver.generic_message(**cip_request.bp_info)
                         if this_bp_response.error:
                             # BackPlane response not supported
                             p(f"Can't get backplane info via {cip_path}/bp/{current_slot}")
@@ -130,15 +112,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
         try:
             with CIPDriver(f'{cip_path}') as temporary_driver:
                 # pprint(temporary_driver)
-                this_module_response: Tag = temporary_driver.generic_message(
-                    service=Services.get_attributes_all,
-                    class_code=0x1,
-                    instance=0x1,
-                    connected=False,
-                    unconnected_send=True,
-                    route_path=True,
-                    name='Who'
-                )
+                this_module_response: Tag = temporary_driver.generic_message(**cip_request.who)
                 if this_module_response:
                     this_module = MyModuleIdentityObject.decode(this_module_response.value)
                 else:
@@ -146,21 +120,11 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
 
                 # here we've got controlnet module by full cip path via controlnet
                 if this_module['product_code'] in controlnet_module:
-                    this_bp_response = temporary_driver.generic_message(
-                        service=Services.get_attributes_all,
-                        class_code=0x66,
-                        instance=0x1,
-                        attribute=0x0,
-                        data_type=shassy_ident,
-                        connected=False,
-                        unconnected_send=True,
-                        route_path=True
-                    )
+                    this_bp_response = temporary_driver.generic_message(**cip_request.bp_info)
                     if this_bp_response.error:
                         # BackPlane response not supported. May be an old CN module o BP
                         # need to generate some ID for  backplane
                         # this_bp['serial'] = str(serial_unknown)
-
                         pass
                     else:
                         this_bp = this_bp_response.value
@@ -170,16 +134,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                         # }
 
                 if this_module['product_code'] in (flex_adapter,):
-                    this_flex_response = temporary_driver.generic_message(
-                        service=Services.get_attributes_all,
-                        class_code=0x78,
-                        instance=0x01,
-                        # attribute=0x0,
-                        connected=True,
-                        unconnected_send=True,
-                        route_path=True,
-                        name="flex_modules_info",
-                    )
+                    this_flex_response = temporary_driver.generic_message(**cip_request.flex_info )
                     p(f'{format}Flex adapter at {cip_path}')
                     pprint(this_flex_response.value)
                     # b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules
@@ -213,15 +168,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
             driver: CIPDriver = CIPDriver(this_module_path)
             driver.open()
 
-            this_module_response = driver.generic_message(
-                service=Services.get_attributes_all,
-                class_code=0x1,
-                instance=0x1,
-                connected=False,
-                unconnected_send=True,
-                route_path=True,
-                name='Who'
-            )
+            this_module_response = driver.generic_message(**cip_request.who)
             if this_module_response.error and this_module_response.value in long_path_error_values:
                 # some CN modules does not respond to message via long path with bp
                 _cn_here = cip_path.split('/')[-1]
@@ -231,15 +178,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
                     driver: CIPDriver = CIPDriver(this_module_path)
                     driver.open()
 
-                    this_module_response = driver.generic_message(
-                        service=Services.get_attributes_all,
-                        class_code=0x1,
-                        instance=0x1,
-                        connected=False,
-                        unconnected_send=True,
-                        route_path=True,
-                        name='Who'
-                    )
+                    this_module_response = driver.generic_message(**cip_request.who)
                 except ResponseError:
                     pass  # no way
                 except CommError:
@@ -274,16 +213,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', exclude_bp_sn
             # Requests the name of the program running in the PLC. Uses KB `23341`_ for implementation.
             if this_module['product_type'] == "Programmable Logic Controller":
                 try:
-                    response: Tag = driver.generic_message(
-                        service=Services.get_attributes_all,
-                        class_code=ClassCode.program_name,
-                        instance=1,
-                        data_type=STRING,
-                        connected=False,
-                        unconnected_send=True,
-                        route_path=True,
-                        name="get_plc_name",
-                    )
+                    response: Tag = driver.generic_message(**cip_request.plc_name)
                     if not response:
                         raise ResponseError(f"response did not return valid data - {response.error}")
 
@@ -331,15 +261,7 @@ def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_upda
         try:
             driver = CIPDriver(target)
             driver.open()
-            cn_module = driver.generic_message(
-                service=Services.get_attributes_all,
-                class_code=0x1,
-                instance=0x1,
-                connected=False,
-                unconnected_send=True,
-                route_path=True,
-                name='Who'
-            )
+            cn_module = driver.generic_message(**cip_request.who)
             if cn_module.error:
                 # no module. CN address not in use
                 # print('.', end='')

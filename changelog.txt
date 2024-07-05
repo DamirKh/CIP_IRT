@@ -2,3 +2,6 @@ imp-01:
     представление объекта. декодирование полей
     shassy.py added MyModuleIdent
     scanner_lib.py used MyModuleIdent, save long_path to module
+imp-02:
+    цель - оптимизация scanner_lib
+    создан cip_request.py, куда вынесены из scanner_lib.py определения запросов
