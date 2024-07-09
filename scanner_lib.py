@@ -41,7 +41,8 @@ class BackplaneSerialNumberMissmatch(Exception):
         super().__init__(f"Backplane SN {bp_serial_current} != {bp_serial_prev}")
 
 
-def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=print):
+def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
+            module_found = pprint):
     """
     Scans the Backplane by specified CIP path for modules and returns a dictionary
     mapping their serial numbers to their corresponding paths and whether they've been scanned.
@@ -142,7 +143,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=print):
             print()
             raise CommError(f"Can't communicate to {cip_path}!")
 
-    if this_flex_response:
+    if this_flex_response:  # TODO
         global_data.cn_flex[this_module['serial']] = {
             'adapter': this_module,
             'modules': this_flex_response.value
@@ -183,13 +184,15 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=print):
                     pass  # nothing to do
                 pass
 
-            if this_module_response:  # this block executed for every real module
+            if this_module_response:  # this block executed for every real module ######################################
                 this_module = MyModuleIdentityObject.decode(this_module_response.value)
                 this_module["path"] = _long_path
                 if _cn_here:
                     this_module['CN_ADDR'] = _cn_here
                 p(f"{format}Slot {slot:02} = [{this_module['serial']}] {this_module['product_name']}")
                 modules_in_bp[slot] = ic(this_module['serial'])
+                if module_found:
+                    module_found(this_module)
 
             else:
                 p(f'{format}Slot {slot:02} = EMPTY')

@@ -53,8 +53,8 @@ class MainWindow(QWidget):
         self.setWindowTitle("CIP Inventory Resource Tracker")
         self.resize(800, 600)
 
-        # Database setup
-        self.db_path = ic(get_user_data_path() / f"main_prog.cfg")
+        # Program settings file
+        self.program_settings_file_path = ic(get_user_data_path() / f"main_prog.cfg")
 
         # Initial widgets (start with one row)
         self.system_name = []
@@ -170,9 +170,9 @@ class MainWindow(QWidget):
 
     def load_settings(self):
         """Loads settings from the binary file."""
-        if os.path.exists(self.db_path):
+        if os.path.exists(self.program_settings_file_path):
             try:
-                with open(self.db_path, "rb") as f:
+                with open(self.program_settings_file_path, "rb") as f:
                     settings = pickle.load(f)
                     print("Loaded settings:", settings)
             except (pickle.PickleError, OSError) as e:
@@ -180,7 +180,8 @@ class MainWindow(QWidget):
                 return False
             except EOFError as e:
                 print(f"Broken settings file: {e}")
-                os.unlink(self.db_path)
+                os.unlink(self.program_settings_file_path)
+                print("Deleted!!")
                 return False
             return settings
         else:
@@ -188,18 +189,18 @@ class MainWindow(QWidget):
             return False
 
     def save_config(self):
-        with open(self.db_path, "wb") as f:
+        with open(self.program_settings_file_path, "wb") as f:
             settings = []
             for job_index in range(len(self.system_name)):
-                if not self.checkboxes[job_index].isEnabled():
+                if not self.checkboxes[job_index].isEnabled():  # do not mess with isChecked()
                     continue
-                settings.append([
-                    "Execution time",  # 0
-                    self.checkboxes[job_index].isChecked(),  # 1
-                    self.system_name[job_index].text(),  # 2
-                    self.entry_point[job_index].text(),  # 3
-                    self.last_scan_time[job_index].text(),  # 4
-                ])
+                this_line = {
+                    'checked': self.checkboxes[job_index].isChecked(),  # 1
+                    'system_name': self.system_name[job_index].text(),  # 2
+                    'entry_point': self.entry_point[job_index].text(),  # 3
+                    'last_scan_time': self.last_scan_time[job_index].text(),
+                }
+                settings.append(this_line)
             pickle.dump(settings, f)
         QMessageBox.information(self, "Done", f"Saved {len(settings)} rows")
         print("Settings saved successfully!")
@@ -230,7 +231,7 @@ class MainWindow(QWidget):
             print("Rejected!")
             return
 
-    def handle_data(self, system_name, ip_address, deep_scan = None, last_scat_time = None):
+    def handle_data(self, system_name, ip_address, deep_scan = None, last_scan_time = None):
 
         # Receive data and use it to add a row
         # ... (add a row to the grid layout)
@@ -239,7 +240,9 @@ class MainWindow(QWidget):
         # Create new widgets for the row
         self.system_name.append(QLabel(system_name))
         self.entry_point.append(QLabel(ip_address))
-        self.last_scan_time.append(QLabel("UNKNOWN"))  # TODO
+        self.last_scan_time.append(QLabel("UNKNOWN"))
+        if last_scan_time:
+            self.last_scan_time[-1].setText(str(last_scan_time))  # Checkit!
         self.preview_buttons.append(QPushButton(f"-"))
         self.preview_buttons[-1].setDisabled(True)
 
@@ -279,8 +282,9 @@ class MainWindow(QWidget):
     def apply_previous_settings(self, saved_configs):
         print(f"Apply prev job list...")
         for job in saved_configs:
-            self.handle_data(system_name=job[2],
-                             ip_address=job[3],
+            self.handle_data(system_name=job['system_name'],
+                             ip_address=job['entry_point'],
+                             last_scan_time=job['last_scan_time']
                              )
             # self.add_row()
             # self.checkboxes[-1].setChecked(job[1])

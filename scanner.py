@@ -1,3 +1,5 @@
+from pprint import pprint
+
 from icecream import ic
 from PyQt6.QtCore import QThread, pyqtSignal
 from scanner_lib import scan_cn, scan_bp, CommError
@@ -5,12 +7,13 @@ from scanner_lib import scan_cn, scan_bp, CommError
 from global_data import global_data
 
 
-class Scaner(QThread):
+class PreScaner(QThread):
     """A scanner thread to perform modules scan"""
     finished = pyqtSignal()
     progress = pyqtSignal(str)
     cn_node_current = pyqtSignal(str)
     communication_error = pyqtSignal(str)  # Signal if can't communicate
+    module_found = pyqtSignal(dict) # signal when found any module
 
     def __init__(self, entry_point: str, deep_scan: bool = False):
         super().__init__()
@@ -30,11 +33,16 @@ class Scaner(QThread):
     def _current_cn_node_update(self, node: str):
         self.cn_node_current.emit(node)
 
+    def _module_found(self, module: dict):
+        pprint(module)
+
 
     def run(self):
         global_data.flush()
         try:
-            ep = scan_bp(cip_path=self.entry_point, entry_point=True, format='   ', p=self._progress_update)
+            ep = scan_bp(cip_path=self.entry_point, entry_point=True, format='   ',
+                         p=self._progress_update,
+                         module_found=self._module_found)
             bp_sn, modules, bp, cn_path = ep
 
             if self.deep_scan and ic(len(cn_path)):

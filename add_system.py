@@ -1,11 +1,12 @@
 import sys
 import time, datetime
+from pprint import pprint
 
 from PyQt6.QtGui import QTextCursor, QFont
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QTextEdit, QCheckBox, QHBoxLayout, QDialog
 
-from scanner import Scaner
+from scanner import PreScaner
 from ip_addr_widget import IPAddressWidget, SystemNameWidget
 
 from global_data import global_data
@@ -18,47 +19,6 @@ class AddSystemDialog(QDialog):
     data_ready = pyqtSignal(str, str, bool)  # Arguments for name, IP, deep scan
 
     def __init__(self, parent = None):
-        # # super().__init__()
-        # super().__init__(parent)
-        # # super(AddSystemDialog, self).__init__(parent)
-        # self.setWindowTitle("Add new entry point")
-        #
-        # self.system_name = SystemNameWidget()
-        #
-        # self.ip_widget = IPAddressWidget()
-        # self.ip_widget.ip_input.textChanged.connect(self.validate_ip)  # Connect to validate_ip
-        #
-        # # Create a layout for the checkbox and label
-        # checkbox_layout = QHBoxLayout()
-        #
-        # self.deep_scan_checkbox = QCheckBox('Deep scan')
-        # checkbox_layout.addWidget(self.deep_scan_checkbox)
-        #
-        # self.cn_label = QLabel("Now scanning CN node: [--]")
-        # font = QFont("Courier New", 10)  # Choose a monospace font
-        # self.cn_label.setFont(font)
-        # checkbox_layout.addWidget(self.cn_label)
-        #
-        # self.label = QTextEdit()
-        # self.label.setReadOnly(True)
-        # self.button = QPushButton("Start scan")
-        # self.button.clicked.connect(self.start_task)
-        #
-        # layout_name_ip = QHBoxLayout()
-        # layout_name_ip.addWidget(self.system_name)
-        # layout_name_ip.addWidget(self.ip_widget)
-        #
-        # layout = QVBoxLayout()
-        # # layout.addWidget(self.system_name)
-        # # layout.addWidget(self.ip_widget)
-        # layout.addLayout(layout_name_ip)
-        # layout.addLayout(checkbox_layout)  # Add the checkbox layout
-        # # layout.addWidget(self.deep_scan_checkbox)
-        # layout.addWidget(self.label)
-        # layout.addWidget(self.button)
-        # self.setLayout(layout)
-        #
-        # self.validate_ip()
         super().__init__(parent)
         self.setWindowTitle("Add new entry point")
 
@@ -119,11 +79,12 @@ class AddSystemDialog(QDialog):
         self.log = []
         self.log.append(f'Task started at {datetime.datetime.now()}')
 
-        self.worker = Scaner(self.ip_widget.get_ip(), self.deep_scan_checkbox.isChecked())
+        self.worker = PreScaner(self.ip_widget.get_ip(), self.deep_scan_checkbox.isChecked())
         self.worker.progress.connect(self.update_progress)
         self.worker.cn_node_current.connect(self._update_cn_node_current)
         self.worker.finished.connect(self.task_finished)
         self.worker.communication_error.connect(self.handle_communication_error)
+        self.worker.module_found.connect(self.module_found)
         # try:
         self.worker.start()
         # except CommError
@@ -170,6 +131,9 @@ class AddSystemDialog(QDialog):
 
         # Close the dialog
         super().accept()
+
+    def module_found(self, module: dict):
+        pprint(module)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
