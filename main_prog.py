@@ -230,7 +230,7 @@ class MainWindow(QWidget):
             print("Rejected!")
             return
 
-    def handle_data(self, system_name, ip_address, deep_scan):
+    def handle_data(self, system_name, ip_address, deep_scan = None, last_scat_time = None):
 
         # Receive data and use it to add a row
         # ... (add a row to the grid layout)
@@ -239,7 +239,7 @@ class MainWindow(QWidget):
         # Create new widgets for the row
         self.system_name.append(QLabel(system_name))
         self.entry_point.append(QLabel(ip_address))
-        self.last_scan_time.append(QLabel("UNKNOWN"))
+        self.last_scan_time.append(QLabel("UNKNOWN"))  # TODO
         self.preview_buttons.append(QPushButton(f"-"))
         self.preview_buttons[-1].setDisabled(True)
 
@@ -279,11 +279,14 @@ class MainWindow(QWidget):
     def apply_previous_settings(self, saved_configs):
         print(f"Apply prev job list...")
         for job in saved_configs:
+            self.handle_data(system_name=job[2],
+                             ip_address=job[3],
+                             )
             # self.add_row()
-            self.checkboxes[-1].setChecked(job[1])
-            self.system_name[-1].setText(job[2])
-            self.entry_point[-1].setText(job[3])
-            self.last_scan_time[-1].setText(job[4])
+            # self.checkboxes[-1].setChecked(job[1])
+            # self.system_name[-1].setText(job[2])
+            # self.entry_point[-1].setText(job[3])
+            # self.last_scan_time[-1].setText(job[4])
         pass
 
 
