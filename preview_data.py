@@ -25,6 +25,8 @@ class DataPreviewWidget(QWidget):
     def __init__(self, data, parent=None):
         super().__init__(parent)
 
+        self.setWindowTitle("Data Viewer")
+
         # Create the table view and set editability
         self.table_view = QTableView()
         self.table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
