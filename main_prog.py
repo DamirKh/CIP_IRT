@@ -29,16 +29,9 @@ from pathlib import Path
 from add_system import AddSystemDialog
 from ping_widget import PingWidget
 
-rev = 0
-
-def get_user_data_path():
-    """Returns the user's data directory in an OS-independent way."""
-
-    home_dir = pathlib.Path.home()
-    app_data_dir = home_dir / "AppData" if os.name == "nt" else home_dir / ".config"
-    user_data_dir = app_data_dir / f"LogixInvent_{rev}"
-
-    return user_data_dir
+from version import rev
+from saver import get_user_data_path
+from scanner import Scaner
 
 
 # Constants for clarity
@@ -51,6 +44,7 @@ class MainWindow(QWidget):
 
         super().__init__()
 
+        self.running_scanner = None
         self.setWindowTitle("CIP Inventory Resource Tracker")
         self.resize(800, 600)
 
@@ -182,12 +176,20 @@ class MainWindow(QWidget):
 
 
     def run(self):
-        """Handles the tag conversion process based on user selections."""
         if not len(self.system_name):
             QMessageBox.information(self, "No any system file", f"Please, \nspecify at least one system to scan")
             return
         else:
-            print('Not implemented')
+            for i, current_system in enumerate(self.system_name):
+                if not self.checkboxes[i].isChecked():
+                    print(f"Skip {current_system.text()}")
+                    continue
+                try:
+                    self.running_scanner = Scaner(system_name=current_system.text())
+                    self.running_scanner.start()
+                except SystemExit:
+                    print(f"Error scanning {current_system.text()}")
+            print('Scan finished')
             return
 
     def load_settings(self):

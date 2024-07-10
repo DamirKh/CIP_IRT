@@ -11,8 +11,9 @@ from ip_addr_widget import IPAddressWidget, SystemNameWidget
 
 from ping_widget import PingWidget
 
-from global_data import global_data
+# from global_data import global_data
 
+from saver import ModuleSaver as SystemConfigSaver
 
 class AddSystemDialog(QDialog):
     """Main window with a button to trigger the long task."""
@@ -135,7 +136,7 @@ class AddSystemDialog(QDialog):
         cursor = self.label.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         self.label.setTextCursor(cursor)
-        global_data.store_data()
+        # global_data.store_data()
 
     def accept(self):
         system_name = self.system_name.get_system_name()  # Get data from widgets
@@ -144,6 +145,14 @@ class AddSystemDialog(QDialog):
 
         # Emit the signal with the data
         self.data_ready.emit(system_name, ip_address, deep_scan)
+
+        s = SystemConfigSaver(filename=f"{system_name}.json")
+        s.add_object({
+            "serial": system_name,
+            "ip_address": ip_address,
+            "deep_scan": deep_scan,
+        })
+        s.save_data()
 
         self.ping.stop_ping()
 
