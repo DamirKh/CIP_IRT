@@ -145,6 +145,8 @@ class AddSystemDialog(QDialog):
         # Emit the signal with the data
         self.data_ready.emit(system_name, ip_address, deep_scan)
 
+        self.ping.stop_ping()
+
         # Close the dialog
         super().accept()
 

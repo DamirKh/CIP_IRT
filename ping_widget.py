@@ -5,18 +5,11 @@ from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
     QLabel,
-    QVBoxLayout,
     QHBoxLayout,
-    QLineEdit,
-    QPushButton,
-    QMessageBox,
 )
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from PyQt6.QtCore import QTimer, Qt, QSize
-# from PyQt6.QtGui import QColor, QBrush
-
-# import python_ping3
+from PyQt6.QtCore import QTimer, QSize
 from host_ping import ping
 
 
@@ -67,12 +60,17 @@ class PingWidget(QWidget):
         self.timer.start(500)
 
     def stop_ping(self):
+
         if self.ping_thread:
             self.ping_thread.stop()
             self.ping_thread.wait()  # Wait for the thread to finish
             self.ping_thread = None
-
-        self.timer.stop()
+        if self.timer is None:
+            pass
+        else:
+            self.timer.stop()
+        self._results = [None] * len(self.square_labels)
+        self.update_square_label(None)
 
     def update_square_label(self, success):
         # Update the color of the square label based on ping result
@@ -98,13 +96,14 @@ class PingThread(QThread):
         super().__init__()
         self.ip_address = ip_address
         self.results = None
-        self._running = True
+        self._running = False
 
     def run(self):
+        self._running = True
         try:
             while self._running:  # Endless ping loop
                 # Use ping_lib to ping the IP address
-                ping_result = ping(self.ip_address, packages=4, wait=2)
+                ping_result = ping(self.ip_address, packages=1, wait=1)
                 success = bool(ping_result == 0)  # True if ping is successful
 
                 self.progress.emit(f"Pinging {self.ip_address}...")

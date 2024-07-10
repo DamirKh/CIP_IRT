@@ -27,6 +27,7 @@ import pickle
 from pathlib import Path
 
 from add_system import AddSystemDialog
+from ping_widget import PingWidget
 
 rev = 0
 
@@ -60,6 +61,7 @@ class MainWindow(QWidget):
         self.system_name = []
         self.entry_point = []
         self.last_scan_time = []
+        self.ping_status = []
         self.preview_buttons = []
         self.checkboxes = []
 
@@ -83,13 +85,17 @@ class MainWindow(QWidget):
             # Add labels for grid
             row_index = 0
             self.top_checkbox = QCheckBox()
+            self.ping_checkbox = QCheckBox('Ping IP addresses')
             self.grid_layout.addWidget(self.top_checkbox, row_index, 0)
             self.grid_layout.addWidget(QLabel("System name"), row_index, 1)
             self.grid_layout.addWidget(QLabel("Entry point"), row_index, 3)
+            self.grid_layout.addWidget(self.ping_checkbox, row_index, 4)
             self.grid_layout.addWidget(QLabel("Last scan time"), row_index, 5)
 
             # Connect top checkbox to other checkboxes
             self.top_checkbox.stateChanged.connect(self.top_checkbox_changed)
+
+            self.ping_checkbox.stateChanged.connect(self.ping_checkbox_changed)
 
             # Set spacing for better visual separation
             self.grid_layout.setHorizontalSpacing(5)
@@ -159,6 +165,22 @@ class MainWindow(QWidget):
             # self.add_row()
             pass
 
+    def ping_checkbox_changed(self, state):
+        print(f'Ping enabled {self.ping_checkbox.checkState()}')
+        if state == 2:  # Qt.Checked
+            # print('Enable pinging')
+            for i, ping_widget in enumerate(self.ping_status):
+                ping_widget.start_ping(self.entry_point[i].text())
+        elif state == 0:  # Qt.Unchecked
+            # print('Disable pinging')
+            self.ping_checkbox.setText('Wait...')
+            self.ping_checkbox.setEnabled(False)
+            for ping_widget in self.ping_status:
+                ping_widget.stop_ping()
+            self.ping_checkbox.setText('Ping IP addresses')
+            self.ping_checkbox.setEnabled(True)
+
+
     def run(self):
         """Handles the tag conversion process based on user selections."""
         if not len(self.system_name):
@@ -205,7 +227,7 @@ class MainWindow(QWidget):
         QMessageBox.information(self, "Done", f"Saved {len(settings)} rows")
         print("Settings saved successfully!")
 
-    def top_checkbox_changed(self, state):
+    def top_checkbox_changed(self, state):  # Leftmost checkboxes
         # print(f'Top checkbox {state}')
         # Check if top checkbox is checked
         if state == 2:  # Qt.Checked
@@ -240,6 +262,7 @@ class MainWindow(QWidget):
         # Create new widgets for the row
         self.system_name.append(QLabel(system_name))
         self.entry_point.append(QLabel(ip_address))
+        self.ping_status.append(PingWidget(q=7, size=15))
         self.last_scan_time.append(QLabel("UNKNOWN"))
         if last_scan_time:
             self.last_scan_time[-1].setText(str(last_scan_time))  # Checkit!
@@ -262,6 +285,7 @@ class MainWindow(QWidget):
         self.grid_layout.addWidget(self.checkboxes[job_no], row_index, 0)
         self.grid_layout.addWidget(self.system_name[job_no], row_index, 1)
         self.grid_layout.addWidget(self.entry_point[job_no], row_index, 3)
+        self.grid_layout.addWidget(self.ping_status[job_no], row_index, 4)
         self.grid_layout.addWidget(self.last_scan_time[job_no], row_index, 5)
         self.grid_layout.addWidget(self.preview_buttons[job_no], row_index, 7)
 
