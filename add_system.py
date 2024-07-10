@@ -9,6 +9,8 @@ from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLay
 from scanner import PreScaner
 from ip_addr_widget import IPAddressWidget, SystemNameWidget
 
+from ping_widget import PingWidget
+
 from global_data import global_data
 
 
@@ -23,6 +25,9 @@ class AddSystemDialog(QDialog):
         self.setWindowTitle("Add new entry point")
 
         # Widgets
+        self.ping = PingWidget(q=10, size=20)
+        self.ping_checkbox = QCheckBox('Ping IP address')
+        self.ping_checkbox.stateChanged.connect(self.ping_checkbox_changed)
         self.system_name = SystemNameWidget()
         self.ip_widget = IPAddressWidget()
         self.ip_widget.ip_input.textChanged.connect(self.validate_ip)
@@ -43,6 +48,10 @@ class AddSystemDialog(QDialog):
         layout_name_ip.addWidget(self.system_name)
         layout_name_ip.addWidget(self.ip_widget)
 
+        layout_ping = QHBoxLayout()  # Horizontal layout for ping widget
+        layout_ping.addWidget(self.ping)
+        layout_ping.addWidget(self.ping_checkbox)
+
         checkbox_layout = QHBoxLayout()
         checkbox_layout.addWidget(self.deep_scan_checkbox)
         checkbox_layout.addWidget(self.cn_label)
@@ -54,6 +63,7 @@ class AddSystemDialog(QDialog):
 
         main_layout = QVBoxLayout()  # Main vertical layout
         main_layout.addLayout(layout_name_ip)
+        main_layout.addLayout(layout_ping)  # Add ping widget layout
         main_layout.addLayout(checkbox_layout)
         main_layout.addWidget(self.label)
         main_layout.addLayout(button_layout)  # Add button layout
@@ -64,6 +74,12 @@ class AddSystemDialog(QDialog):
 
     def _update_cn_node_current(self, cn_node):
         self.cn_label.setText(f"Now scanning CN node: [{cn_node}]")
+
+    def ping_checkbox_changed(self, state):
+        if state == 2: # Qt.Checked
+            self.ping.start_ping(self.ip_widget.get_ip())
+        else: # Qt.Unchecked
+            self.ping.stop_ping()
 
     def validate_ip(self):
         """Validate the IP address and enable/disable the button."""

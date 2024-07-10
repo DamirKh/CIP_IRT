@@ -14,45 +14,35 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from PyQt6.QtCore import QTimer, Qt, QSize
-from PyQt6.QtGui import QColor, QBrush
+# from PyQt6.QtGui import QColor, QBrush
 
-import ping_lib as ping  # Import your ping library
+# import python_ping3
+from host_ping import ping
+
 
 class PingWidget(QWidget):
-    def __init__(self):
+    def __init__(self, q=10, size=20):
         super().__init__()
-        self.setWindowTitle("Ping Widget")
+        self._ip_address = '127.0.0.1'
 
-        # UI Elements
-        self.ip_input = QLineEdit()
-        self.ping_button = QPushButton("Ping")
-        self.result_label = QLabel()
-
-        # Create 5 square labels
+        # Create q square labels
+        self._results = []
         self.square_labels = []
-        for _ in range(5):
+        for _ in range(q):
             label = QLabel()
             label.setStyleSheet("background-color: gray;")
-            label.setFixedSize(QSize(30, 30))
+            label.setFixedSize(QSize(size, size))
             self.square_labels.append(label)
-
-        # Layouts
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("Enter IP Address:"))
-        layout.addWidget(self.ip_input)
-        layout.addWidget(self.ping_button)
-        layout.addWidget(self.result_label)
+            self._results.append(None)
 
         # Create a horizontal layout for the square labels
         square_layout = QHBoxLayout()
+        # Add a spacer first
+        spacer_hor = QWidget()
+        square_layout.addWidget(spacer_hor, stretch=1)
         for label in self.square_labels:
             square_layout.addWidget(label)
-
-        layout.addLayout(square_layout)  # Add the square layout to the main layout
-        self.setLayout(layout)
-
-        # Connect Signals and Slots
-        self.ping_button.clicked.connect(self.start_ping)
+        self.setLayout(square_layout)
 
         # Initialize ping thread
         self.ping_thread = None
@@ -60,18 +50,14 @@ class PingWidget(QWidget):
         self.ping_results = None
         self.current_ping_index = 0
 
-    def start_ping(self):
-        ip_address = self.ip_input.text()
-        if not ip_address:
-            QMessageBox.warning(self, "Error", "Please enter an IP address.")
-            return
+        # self.start_ping()
 
-        self.ping_button.setEnabled(False)
+    def start_ping(self, ip_address: str):
+        self._ip_address = ip_address
+        self._results = [None] * len(self.square_labels)
 
         # Start pinging
-        self.ping_thread = PingThread(ip_address)
-        self.ping_thread.finished.connect(self.ping_finished)
-        self.ping_thread.progress.connect(self.update_progress)
+        self.ping_thread = PingThread(self._ip_address)
         self.ping_thread.ping_result.connect(self.update_square_label)
         self.ping_thread.start()
 
@@ -80,53 +66,53 @@ class PingWidget(QWidget):
         # self.timer.timeout.connect(self.update_progress)  # Use update_progress for both progress and result label
         self.timer.start(500)
 
-    def update_progress(self, progress_message):
-        # Update the result label with progress messages and ping results
-        self.result_label.setText(progress_message)
+    def stop_ping(self):
+        if self.ping_thread:
+            self.ping_thread.stop()
+            self.ping_thread.wait()  # Wait for the thread to finish
+            self.ping_thread = None
+
+        self.timer.stop()
 
     def update_square_label(self, success):
         # Update the color of the square label based on ping result
-        if success:
-            self.square_labels[self.current_ping_index].setStyleSheet("background-color: green;")
-        else:
-            self.square_labels[self.current_ping_index].setStyleSheet("background-color: red;")
-        self.current_ping_index = (self.current_ping_index + 1) % len(self.square_labels)
-
-    def ping_finished(self):
-        self.timer.stop()
-        self.ping_button.setEnabled(True)
-
-        if self.ping_results:
-            max_rtt, min_rtt, avg_rtt, packet_loss = self.ping_results
-            self.update_progress(  # Pass the message to update_progress
-                f"Max RTT: {max_rtt} ms\nMin RTT: {min_rtt} ms\nAvg RTT: {avg_rtt} ms\nPacket Loss: {packet_loss:.2f}%"
-            )
-        else:
-            self.update_progress("Ping completed.")  # Pass the message to update_progress
+        # print(self._results)
+        self._results.pop(0)
+        self._results.append(success)
+        for i, result in enumerate(self._results):
+            if result is True:
+                self.square_labels[i].setStyleSheet("background-color: green;")
+            if result is False:
+                self.square_labels[i].setStyleSheet("background-color: red;")
+            if result is None:
+                self.square_labels[i].setStyleSheet("background-color: gray;")
 
 
 class PingThread(QThread):
     finished = pyqtSignal()
     progress = pyqtSignal(str)
     ping_result = pyqtSignal(bool)  # Signal to indicate ping success
+    stopped = pyqtSignal()
 
     def __init__(self, ip_address):
         super().__init__()
         self.ip_address = ip_address
         self.results = None
+        self._running = True
 
     def run(self):
         try:
-            self.results = ping.quiet_ping(self.ip_address)
+            while self._running:  # Endless ping loop
+                # Use ping_lib to ping the IP address
+                ping_result = ping(self.ip_address, packages=4, wait=2)
+                success = bool(ping_result == 0)  # True if ping is successful
 
-            for _ in range(5):
                 self.progress.emit(f"Pinging {self.ip_address}...")
-                success = bool(self.results[0])  # Assume success if max_rtt is not None
                 self.ping_result.emit(success)
                 if success:
                     time.sleep(1)  # Adjust the sleep time for the visual effect
                 else:
-                    time.sleep(0.5)  # Adjust the sleep time for the visual effect
+                    time.sleep(1)  # Adjust the sleep time for the visual effect
 
         except Exception as e:
             self.progress.emit(f"Error: {e}")
@@ -134,8 +120,15 @@ class PingThread(QThread):
         finally:
             self.finished.emit()
 
+    def stop(self):
+        """Stops the ping thread."""
+        self._running = False
+        self.stopped.emit()
+
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = PingWidget()
+    window.start_ping('ya.ru')
     window.show()
     sys.exit(app.exec())
