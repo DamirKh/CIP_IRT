@@ -31,6 +31,7 @@ from ping_widget import PingWidget
 
 from version import rev
 from saver import get_user_data_path
+# from scanner import PreScaner as Scaner
 from scanner import Scaner
 
 
@@ -185,15 +186,19 @@ class MainWindow(QWidget):
                     print(f"Skip {current_system.text()}")
                     continue
                 try:
+                    print(f"Trying to scan {current_system.text()} via {self.entry_point[i].text()}...")
                     self.running_scanner = Scaner(
                         system_name=current_system.text(),
                         entry_point=self.entry_point[i].text(),
                     )
+                    self.running_scanner.finished.connect(self.system_finished)
                     self.running_scanner.start()
                 except SystemExit:
                     print(f"Error scanning {current_system.text()}")
-            print('Scan finished')
             return
+
+    def system_finished(self):
+        print('Scan finished')
 
     def load_settings(self):
         """Loads settings from the binary file."""

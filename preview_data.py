@@ -19,7 +19,9 @@ from PyQt6 import QtGui
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize
 
-from global_data import global_data
+from global_data import global_data_obj
+from saver import get_user_data_path
+
 
 class DataPreviewWidget(QWidget):
     def __init__(self, data, parent=None):
@@ -186,6 +188,12 @@ class DataModel(QAbstractTableModel):
             # Handle out-of-bounds index
             if index.row() - 1 < len(self.filtered_data):
                 value = self.filtered_data.iloc[index.row() - 1, index.column()]
+                if value is None:
+                    return ""
+                if pd.isna(value):
+                    return ""
+                if isinstance(value, (int, float)):
+                    return f"{value:.0f}"  # Format integers as integers
                 return str(value)
             else:
                 return ""  # Or return None if you prefer
@@ -242,7 +250,7 @@ class DataModel(QAbstractTableModel):
 
             if orientation == Qt.Orientation.Vertical:
                 if section == 0:  # Header for filter row
-                    return "Filter"
+                    return "Filters -->"
                 elif section > 0:  # Headers for data rows
                     return str(self.filtered_data.index[section - 1])
         # filtered by value in this column highlighted
@@ -293,6 +301,8 @@ if __name__ == "__main__":
     # data = generate_test_data(num_rows=10000, num_cols=20, max_string_length=2)  # Generate 10 rows, 10 columns
 
     # load data
+    test_labor = get_user_data_path() / "labor1.data"
+    global_data = global_data_obj(fname=test_labor)
     global_data.restore_data()
     data = pd.DataFrame.from_dict(global_data.module, orient='index')
 

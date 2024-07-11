@@ -1,5 +1,6 @@
 # module for storing global program data
 import pickle
+from copy import deepcopy
 
 
 class global_data_obj(object):
@@ -55,4 +56,29 @@ class global_data_obj(object):
             self.cn_nodes = data['cn_nodes']
             return data
 
-global_data=global_data_obj()
+
+global_data = global_data_obj()
+
+blank_module = {
+    "system": None,
+    "vendor#": None,
+    "product_type#": None,
+    "product_code": None,
+    "major": None,
+    "minor": None,
+    "status": None,
+    "serial": None,
+    "product_name": None,
+    "product_type": None,
+    "vendor": None,
+    "rev": None,
+    "slot": None,
+    "size": None,
+    "path": None,
+    "name": None,
+    "cn_addr": None
+}
+
+
+def new_blank_module():
+    return deepcopy(blank_module)

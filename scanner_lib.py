@@ -2,14 +2,13 @@ from pprint import pprint
 
 from icecream import ic
 
-ic.disable()
 
 from pycomm3 import CIPDriver, Tag
 from pycomm3.exceptions import ResponseError, RequestError, CommError
 
 from pycomm3.logger import configure_default_logger
 
-from global_data import global_data
+from global_data import global_data, new_blank_module
 
 from shassy import MyModuleIdentityObject
 import cip_request
@@ -47,7 +46,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
     Scans the Backplane by specified CIP path for modules and returns a dictionary
     mapping their serial numbers to their corresponding paths and whether they've been scanned.
 
-    apdate datas in global_data module
+    update datas in global_data module
 
     Args:
         :param format (str): this string will be added before every log message
@@ -158,6 +157,19 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
     p('Backpane')
     p(this_bp)
 
+    bp_as_module = new_blank_module()
+    bp_as_module["serial"] = this_bp_sn
+    bp_as_module["size"] = this_bp.get('size', None)
+    bp_as_module["rev"] = f"{this_bp.get('major_rev', 0)}.{this_bp.get('minor_rev', 0)}"
+    bp_as_module["major"] = this_bp.get('major_rev', 0)
+    bp_as_module["minor"] = this_bp.get('minor_rev', 0)
+    bp_as_module["product_name"] = "Backplane"
+    bp_as_module["product_type"] = f"{this_bp.get('size', "UNKNOWN")} slots"
+    bp_as_module["path"] = f"{cip_path}/bp"
+
+    module_found(bp_as_module)
+    bp_known_size = True if bp_as_module["size"] else False
+
     for slot in range(this_bp.get('size', 14)):
         _cn_here = False
         if cip_path == '11.100.40.1/bp/3/cnet/1' and slot == 3:
@@ -187,16 +199,30 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
             if this_module_response:  # this block executed for every real module ######################################
                 this_module = MyModuleIdentityObject.decode(this_module_response.value)
                 this_module["path"] = _long_path
+                this_module["slot"] = slot
                 if _cn_here:
-                    this_module['CN_ADDR'] = _cn_here
+                    this_module['cn_addr'] = _cn_here
+                if this_module['product_code'] in controlnet_module:
+                    this_module['cn_addr'] = cip_path.split('/')[-1]
                 p(f"{format}Slot {slot:02} = [{this_module['serial']}] {this_module['product_name']}")
                 modules_in_bp[slot] = ic(this_module['serial'])
                 if module_found:
                     module_found(this_module)
 
             else:
-                p(f'{format}Slot {slot:02} = EMPTY')
-                modules_in_bp[slot] = None
+                if bp_known_size:
+                    p(f'{format}Slot {slot:02} = EMPTY')
+                    modules_in_bp[slot] = None
+                    empty_slot_as_module = new_blank_module()
+                    empty_slot_as_module["slot"] = slot
+                    empty_slot_as_module["product_name"] = "Empty slot"
+                    empty_slot_as_module["serial"] = f'{this_bp_sn}-{slot:0>2}'
+                    empty_slot_as_module["path"] = _long_path
+
+                    module_found(empty_slot_as_module)
+                else:
+                    #bp size unknown
+                    pass
 
                 continue
 
@@ -235,10 +261,10 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
             p(f'{format} !!! Module in slot {slot} may be broken')
             modules_in_bp[slot] = None
             continue
-        global_data.module[this_module['serial']] = this_module
+        # global_data.module[this_module['serial']] = this_module
         driver.close()
 
-    global_data.bp[this_bp_sn].update(modules_in_bp)
+    # global_data.bp[this_bp_sn].update(modules_in_bp)
 
     return this_bp_sn, modules_in_bp, this_bp, cn_modules_paths
 
@@ -246,7 +272,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
 def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update=None):
     if current_cn_node_update:  # ---------------------------------------------logging function
         cn_node_updt = current_cn_node_update
-    else:  # ----------------------------------------------------------------NO logging funtion
+    else:  # ---------------------------------------------------------------NO logging function
         def cn_node_updt(*args, **kwargs):
             pass
 
