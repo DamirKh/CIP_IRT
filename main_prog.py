@@ -177,7 +177,7 @@ class MainWindow(QWidget):
 
     def run(self):
         if not len(self.system_name):
-            QMessageBox.information(self, "No any system file", f"Please, \nspecify at least one system to scan")
+            QMessageBox.information(self, "No any system selected", f"Please, \nspecify at least one system to scan")
             return
         else:
             for i, current_system in enumerate(self.system_name):
@@ -185,7 +185,10 @@ class MainWindow(QWidget):
                     print(f"Skip {current_system.text()}")
                     continue
                 try:
-                    self.running_scanner = Scaner(system_name=current_system.text())
+                    self.running_scanner = Scaner(
+                        system_name=current_system.text(),
+                        entry_point=self.entry_point[i].text(),
+                    )
                     self.running_scanner.start()
                 except SystemExit:
                     print(f"Error scanning {current_system.text()}")

@@ -76,12 +76,12 @@ class Scaner(QThread):
     communication_error = pyqtSignal(str)  # Signal if can't communicate
     module_found = pyqtSignal(dict)  # signal when found any module
 
-    def __init__(self, system_name: str, deep_scan: bool = True):
+    def __init__(self, system_name: str, entry_point: str, deep_scan: bool = True):
         super().__init__()
-        s = SystemConfigSaver(filename=f'{system_name}.json')
-        system_settings = s.load_data()
+        # s = SystemConfigSaver(filename=f'{system_name}.json')
+        # system_settings = s.load_data()
 
-        self.entry_point = system_settings[system_name]["ip_address"]
+        self.entry_point = entry_point
         self.deep_scan = deep_scan
         self.found_paths_dict = {}
         # self.scanned = set()
@@ -98,7 +98,7 @@ class Scaner(QThread):
         self.cn_node_current.emit(node)
 
     def _module_found(self, module: dict):
-        pprint(module)
+        # pprint(module)
         all_modules.add_object(module)
         self.module_found.emit(module)
 
