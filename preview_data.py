@@ -17,13 +17,14 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6 import QtGui
 from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize
+from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize, pyqtSignal
 
 from global_data import global_data_obj
 from saver import get_user_data_path
 
 
 class DataPreviewWidget(QWidget):
+    finished = pyqtSignal()
     def __init__(self, data, parent=None):
         super().__init__(parent)
 
@@ -73,6 +74,10 @@ class DataPreviewWidget(QWidget):
         # Connect to header section clicked signal to show the column visibility menu
         self.table_view.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table_view.horizontalHeader().customContextMenuRequested.connect(self.show_column_visibility_menu)
+
+    def closeEvent(self, event):
+        self.finished.emit()
+        super().closeEvent(event)
 
     def show_context_menu(self, pos):
         menu = QMenu(self)

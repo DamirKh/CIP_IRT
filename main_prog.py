@@ -1,5 +1,7 @@
 import time
 
+import pandas as pd
+
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
@@ -35,11 +37,49 @@ from version import rev
 from saver import get_user_data_path
 # from scanner import PreScaner as Scaner
 from scanner import Scaner
+from global_data import global_data_obj
+
+
+import preview_data
 
 # Constants for clarity
 basedir = os.path.dirname(__file__)
 asset_dir = os.path.join(basedir, 'asset')
 
+
+def load_data(path):
+  """Loads data from all files with "*.data" extension in the specified path.
+
+  Args:
+    path: The path to the directory containing the data files.
+
+  Returns:
+    A pandas DataFrame containing the combined data from all files.
+  """
+
+  # Get a list of all files with "*.data" extension in the path
+  data_files = [f for f in os.listdir(path) if f.endswith(".data")]
+
+  # Create an empty list to store the DataFrames
+  data_frames = []
+
+  # Iterate through each data file and load the data
+  for file in data_files:
+    # Create the full file path
+    file_path = os.path.join(path, file)
+
+    # Load data from the file
+    global_data = global_data_obj(fname=file_path)
+    global_data.restore_data()
+    df = pd.DataFrame.from_dict(global_data.module, orient='index')
+
+    # Append the DataFrame to the list
+    data_frames.append(df)
+
+  # Concatenate the list of DataFrames into a single DataFrame
+  data = pd.concat(data_frames, ignore_index=True)
+
+  return data
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -60,6 +100,8 @@ class MainWindow(QWidget):
         self.ping_status = []
         self.preview_buttons = []
         self.checkboxes = []
+
+        self.view_data_window = None
 
         if True:
             # Create layout
@@ -139,6 +181,16 @@ class MainWindow(QWidget):
             self.run_button.clicked.connect(self.start_scan)
             top_layout.addWidget(self.run_button, stretch=0)
 
+            # Add a button to View
+            self.run_button = QPushButton("View")
+            self.run_button.setIcon(QIcon(os.path.join(asset_dir, "Custom-Icon-Design-Pretty-Office-9-Magnifying-glass.24.png")))
+            self.run_button.setIconSize(QSize(32, 32))
+            self.run_button.setToolTip("View data")
+            self.run_button.setText("")
+            self.run_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            self.run_button.clicked.connect(self.view_data)
+            top_layout.addWidget(self.run_button, stretch=0)
+
             # Add a spacer to the right of the top buttons
             spacer_hor = QWidget()
             top_layout.addWidget(spacer_hor, stretch=1)
@@ -163,20 +215,38 @@ class MainWindow(QWidget):
         self.threadpool = QThreadPool()
         print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
 
+    def enable_main_window(self):
+        self.setDisabled(False)
+
+    def view_data(self):
+        saved_data_path = get_user_data_path()
+        data = load_data(saved_data_path)
+        self.view_data_window = preview_data.DataPreviewWidget(data)
+
+        # Disable the main window (optional)
+        self.setDisabled(True)
+
+        # Show the data preview window
+        self.view_data_window.show()
+
+        # **Connect to the 'finished' signal of the data preview window:**
+        self.view_data_window.finished.connect(self.enable_main_window)
+
+
     def ping_checkbox_changed(self, state):
-        print(f'Ping enabled {self.ping_checkbox.checkState()}')
-        if state == 2:  # Qt.Checked
-            # print('Enable pinging')
-            for i, ping_widget in enumerate(self.ping_status):
-                ping_widget.start_ping(self.entry_point[i].text())
-        elif state == 0:  # Qt.Unchecked
-            # print('Disable pinging')
-            self.ping_checkbox.setText('Wait...')
-            self.ping_checkbox.setEnabled(False)
-            for ping_widget in self.ping_status:
-                ping_widget.stop_ping()
-            self.ping_checkbox.setText('Ping IP addresses')
-            self.ping_checkbox.setEnabled(True)
+            print(f'Ping enabled {self.ping_checkbox.checkState()}')
+            if state == 2:  # Qt.Checked
+                # print('Enable pinging')
+                for i, ping_widget in enumerate(self.ping_status):
+                    ping_widget.start_ping(self.entry_point[i].text())
+            elif state == 0:  # Qt.Unchecked
+                # print('Disable pinging')
+                self.ping_checkbox.setText('Wait...')
+                self.ping_checkbox.setEnabled(False)
+                for ping_widget in self.ping_status:
+                    ping_widget.stop_ping()
+                self.ping_checkbox.setText('Ping IP addresses')
+                self.ping_checkbox.setEnabled(True)
 
     def start_scan(self):
         if not len(self.system_name):
