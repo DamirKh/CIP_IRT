@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QDialog,
 )
 from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtCore import QSize, Qt, QThreadPool
 
 from icecream import ic
 
@@ -46,7 +46,7 @@ class MainWindow(QWidget):
 
         super().__init__()
 
-        self.running_scanner = None
+        # self.running_scanner = None
         self.setWindowTitle("CIP Inventory Resource Tracker")
         self.resize(800, 600)
 
@@ -136,7 +136,7 @@ class MainWindow(QWidget):
             self.run_button.setToolTip("Scan selected rows")
             self.run_button.setText("")
             self.run_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-            self.run_button.clicked.connect(self.scan_checked)
+            self.run_button.clicked.connect(self.start_scan)
             top_layout.addWidget(self.run_button, stretch=0)
 
             # Add a spacer to the right of the top buttons
@@ -160,6 +160,8 @@ class MainWindow(QWidget):
             # Add initial widgets to grid layout
             # self.add_row()
             pass
+        self.threadpool = QThreadPool()
+        print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
 
     def ping_checkbox_changed(self, state):
         print(f'Ping enabled {self.ping_checkbox.checkState()}')
@@ -176,7 +178,7 @@ class MainWindow(QWidget):
             self.ping_checkbox.setText('Ping IP addresses')
             self.ping_checkbox.setEnabled(True)
 
-    def scan_checked(self):
+    def start_scan(self):
         if not len(self.system_name):
             QMessageBox.information(self, "No any system selected", f"Please, \nspecify at least one system to scan")
             return
@@ -185,26 +187,26 @@ class MainWindow(QWidget):
                 if not self.checkboxes[i].isChecked():
                     print(f"Skip {current_system.text()}")
                     continue
-                while self.running_scanner is not None:
-                    ic(f'Waiting for scanner {self.running_scanner} to comlete...')
-                    time.sleep(1)
                 try:
                     print(f"Trying to scan {current_system.text()} via {self.entry_point[i].text()}...")
-                    self.running_scanner = Scaner(
+                    running_scanner = Scaner(
                         system_name=current_system.text(),
                         entry_point=self.entry_point[i].text(),
-                        finish_callback = self.system_finished,
+                        finish_callback=self.system_finished,
                     )
-                    self.running_scanner.finished.connect(self.system_finished)
-                    self.running_scanner.start()
+                    running_scanner.signals.finished.connect(self.system_finished)
+                    self.threadpool.start(running_scanner)
                 except SystemExit:
                     print(f"Error scanning {current_system.text()}")
             return
 
     def system_finished(self, system_name: str):
         print(f'Scan finished: {system_name}')
-        self.running_scanner
-        self.running_scanner = None
+        # Update the last scan time
+        for i, current_system in enumerate(self.system_name):
+            if current_system.text() == system_name:
+                self.last_scan_time[i].setText(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                break
 
     def load_settings(self):
         """Loads settings from the binary file."""
@@ -269,7 +271,7 @@ class MainWindow(QWidget):
             print("Rejected!")
             return
 
-    def handle_data(self, system_name, ip_address, deep_scan=None, last_scan_time=None):
+    def handle_data(self,  system_name, ip_address, deep_scan=None, checked = False, last_scan_time=None):
 
         # Receive data and use it to add a row
         # ... (add a row to the grid layout)
@@ -286,6 +288,7 @@ class MainWindow(QWidget):
         self.preview_buttons[-1].setDisabled(True)
 
         self.checkboxes.append(QCheckBox())
+        self.checkboxes[-1].setChecked(checked)
 
         # Remove spacer
         # Find the position of the widget in the layout
@@ -322,15 +325,12 @@ class MainWindow(QWidget):
     def apply_previous_settings(self, saved_configs):
         print(f"Apply prev job list...")
         for job in saved_configs:
-            self.handle_data(system_name=job['system_name'],
-                             ip_address=job['entry_point'],
-                             last_scan_time=job['last_scan_time']
-                             )
-            # self.add_row()
-            # self.checkboxes[-1].setChecked(job[1])
-            # self.system_name[-1].setText(job[2])
-            # self.entry_point[-1].setText(job[3])
-            # self.last_scan_time[-1].setText(job[4])
+            self.handle_data(
+                            checked=job['checked'],
+                            system_name=job['system_name'],
+                            ip_address=job['entry_point'],
+                            last_scan_time=job['last_scan_time']
+                            )
         pass
 
 
@@ -338,10 +338,13 @@ if __name__ == '__main__':
     ic(os.name)
     # Get the data path
     data_path = ic(get_user_data_path())
+    prev_data_path = data_path / 'prev'
 
     # Create the directory if it doesn't exist
     if not ic(data_path.exists()):
         data_path.mkdir(parents=True, exist_ok=True)
+    if not ic(prev_data_path.exists()):
+        prev_data_path.mkdir(parents=True, exist_ok=True)
 
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(os.path.join(asset_dir, 'tag.ico')))
