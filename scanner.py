@@ -69,13 +69,13 @@ class PreScaner(QThread):
 
 class Scaner(QThread):
     """A scanner thread to perform modules scan"""
-    finished = pyqtSignal()
+    finished = pyqtSignal(str)
     progress = pyqtSignal(str)
     cn_node_current = pyqtSignal(str)
     communication_error = pyqtSignal(str)  # Signal if can't communicate
     module_found = pyqtSignal(dict)  # signal when found any module
 
-    def __init__(self, system_name: str, entry_point: str, deep_scan: bool = True):
+    def __init__(self, system_name: str, entry_point: str, finish_callback,  deep_scan: bool = True):
         super().__init__()
         # s = SystemConfigSaver(filename=f'{system_name}.json')
         # system_settings = s.load_data()
@@ -83,6 +83,7 @@ class Scaner(QThread):
         self.entry_point = entry_point
         self.deep_scan = deep_scan
         self.found_paths_dict = {}
+        self.finish_callback = finish_callback
         # self.scanned = set()
 
     def _progress_update(self, *args, **kwargs):
@@ -97,19 +98,28 @@ class Scaner(QThread):
         self.cn_node_current.emit(node)
 
     def _module_found(self, module: dict):
-        # pprint(module)
-        module["system"] = self.system_name
-        # key = f"{self.system_name}/{module['serial']}"
-        key = module['serial']
+        key = self._module_found_print(module)
         global_data.module[key] = module
         self.module_found.emit(module)
+
+    def _module_found_print(self, module: dict):
+        # pprint(module)
+        path_ip = module["path"].split('/')
+        path_ip[0] = self.system_name
+        path_system_name = '/'.join(path_ip)
+        module["system"] = self.system_name
+        # key = f"{self.system_name}/{module['serial']}"
+        key = path_system_name
+        pprint(key)
+        pprint(module, indent=2)
+        return key
 
     def run(self):
         print(f'Scaner start {self.system_name}')
         global_data.flush()
         try:
             ep = scan_bp(cip_path=self.entry_point, entry_point=True, format='',
-                         module_found=self._module_found
+                         module_found=self._module_found_print
                          )
             bp_sn, modules, bp, cn_path = ep
 
@@ -129,8 +139,14 @@ class Scaner(QThread):
                                                 )
         except CommError as e:
             self.communication_error.emit(str(e))
+            global_data.flush()
+            global_data.restore_data()
             pass
-
-        self.finished.emit()
-        fname = get_user_data_path() / f'{self.system_name}.data'
-        global_data.store_data(filename=fname)
+        else:
+            fname = get_user_data_path() / f'{self.system_name}.data'
+            global_data.store_data(filename=fname)
+            ic(f"Data saved: {fname}")
+        finally:
+            ic(f"Scanner complete {self.system_name}")
+            self.finish_callback(self.system_name)
+            self.finished.emit(self.system_name)

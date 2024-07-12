@@ -201,9 +201,9 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
                 this_module["path"] = _long_path
                 this_module["slot"] = slot
                 if _cn_here:
-                    this_module['cn_addr'] = _cn_here
+                    this_module['cn_node'] = _cn_here
                 if this_module['product_code'] in controlnet_module:
-                    this_module['cn_addr'] = cip_path.split('/')[-1]
+                    this_module['cn_node'] = cip_path.split('/')[-1]
                 p(f"{format}Slot {slot:02} = [{this_module['serial']}] {this_module['product_name']}")
                 modules_in_bp[slot] = ic(this_module['serial'])
                 if module_found:
@@ -216,7 +216,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
                     empty_slot_as_module = new_blank_module()
                     empty_slot_as_module["slot"] = slot
                     empty_slot_as_module["product_name"] = "Empty slot"
-                    empty_slot_as_module["serial"] = f'{this_bp_sn}-{slot:0>2}'
+                    # empty_slot_as_module["serial"] = f'{this_bp_sn}-{slot:0>2}'
                     empty_slot_as_module["path"] = _long_path
 
                     module_found(empty_slot_as_module)

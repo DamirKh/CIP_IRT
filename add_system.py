@@ -146,14 +146,6 @@ class AddSystemDialog(QDialog):
         # Emit the signal with the data
         self.data_ready.emit(system_name, ip_address, deep_scan)
 
-        # s = SystemConfigSaver(filename=f"{system_name}.json")
-        # s.add_object({
-        #     "serial": system_name,
-        #     "ip_address": ip_address,
-        #     "deep_scan": deep_scan,
-        # })
-        # s.save_data()
-
         self.ping.stop_ping()
 
         # Close the dialog

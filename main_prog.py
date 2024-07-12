@@ -1,3 +1,5 @@
+import time
+
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
@@ -33,7 +35,6 @@ from version import rev
 from saver import get_user_data_path
 # from scanner import PreScaner as Scaner
 from scanner import Scaner
-
 
 # Constants for clarity
 basedir = os.path.dirname(__file__)
@@ -135,7 +136,7 @@ class MainWindow(QWidget):
             self.run_button.setToolTip("Scan selected rows")
             self.run_button.setText("")
             self.run_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-            self.run_button.clicked.connect(self.run)
+            self.run_button.clicked.connect(self.scan_checked)
             top_layout.addWidget(self.run_button, stretch=0)
 
             # Add a spacer to the right of the top buttons
@@ -175,8 +176,7 @@ class MainWindow(QWidget):
             self.ping_checkbox.setText('Ping IP addresses')
             self.ping_checkbox.setEnabled(True)
 
-
-    def run(self):
+    def scan_checked(self):
         if not len(self.system_name):
             QMessageBox.information(self, "No any system selected", f"Please, \nspecify at least one system to scan")
             return
@@ -185,11 +185,15 @@ class MainWindow(QWidget):
                 if not self.checkboxes[i].isChecked():
                     print(f"Skip {current_system.text()}")
                     continue
+                while self.running_scanner is not None:
+                    ic(f'Waiting for scanner {self.running_scanner} to comlete...')
+                    time.sleep(1)
                 try:
                     print(f"Trying to scan {current_system.text()} via {self.entry_point[i].text()}...")
                     self.running_scanner = Scaner(
                         system_name=current_system.text(),
                         entry_point=self.entry_point[i].text(),
+                        finish_callback = self.system_finished,
                     )
                     self.running_scanner.finished.connect(self.system_finished)
                     self.running_scanner.start()
@@ -197,8 +201,10 @@ class MainWindow(QWidget):
                     print(f"Error scanning {current_system.text()}")
             return
 
-    def system_finished(self):
-        print('Scan finished')
+    def system_finished(self, system_name: str):
+        print(f'Scan finished: {system_name}')
+        self.running_scanner
+        self.running_scanner = None
 
     def load_settings(self):
         """Loads settings from the binary file."""
@@ -263,7 +269,7 @@ class MainWindow(QWidget):
             print("Rejected!")
             return
 
-    def handle_data(self, system_name, ip_address, deep_scan = None, last_scan_time = None):
+    def handle_data(self, system_name, ip_address, deep_scan=None, last_scan_time=None):
 
         # Receive data and use it to add a row
         # ... (add a row to the grid layout)

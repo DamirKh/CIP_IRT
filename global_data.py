@@ -76,7 +76,7 @@ blank_module = {
     "size": None,
     "path": None,
     "name": None,
-    "cn_addr": None
+    "cn_node": None
 }
 
 
