@@ -1,4 +1,5 @@
 import sys
+from pprint import pprint
 
 import pandas as pd
 
@@ -13,7 +14,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
     QMenu,
-    QHeaderView,
+    QHeaderView, QMessageBox, QDialogButtonBox, QComboBox, QGroupBox, QLineEdit, QGridLayout, QCheckBox, QDialog,
 )
 from PyQt6 import QtGui
 from PyQt6.QtGui import QAction, QIcon
@@ -22,6 +23,96 @@ from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize, py
 from global_data import global_data_obj
 from saver import get_user_data_path
 
+class ConfigureDialog(QDialog):
+    def __init__(self, data_model, parent=None):
+        super().__init__(parent)
+        # pprint(parent)
+        # pprint(self.parent())
+        self.setWindowTitle("Configure Data View")
+        self.data_model = data_model
+
+        # Main Grid Layout
+        main_layout = QGridLayout()
+
+        # Column Visibility and Filter Section
+        column_group = QGroupBox("Column Visibility & Filters")
+        column_layout = QGridLayout()
+
+        # Create labels, checkboxes, and line edits
+        for i, column_name in enumerate(self.data_model._data.columns):
+            label = QLabel(column_name)
+            check_box = QCheckBox()
+            check_box.setChecked(self.parent().column_visibility[i])
+            check_box.stateChanged.connect(lambda state, col=i: self.toggle_column_visibility(col, state))
+            filter_edit = QLineEdit()
+            filter_edit.setText(self.data_model._filters[i])
+            filter_edit.textChanged.connect(lambda text, col=i: self.update_filter(col, text))
+
+            column_layout.addWidget(label, i, 0)
+            column_layout.addWidget(check_box, i, 1)
+            column_layout.addWidget(filter_edit, i, 2)
+
+        column_group.setLayout(column_layout)
+        main_layout.addWidget(column_group, 0, 0, 1, 2)
+
+        # Sorting Section
+        sorting_group = QGroupBox("Sorting")
+        sorting_layout = QHBoxLayout()
+
+        self.sort_column_combo = QComboBox()
+        self.sort_column_combo.addItems(self.data_model._data.columns)
+        self.sort_order_combo = QComboBox()
+        self.sort_order_combo.addItems(["Ascending", "Descending"])
+        self.sort_button = QPushButton("Sort")
+        self.sort_button.clicked.connect(self.apply_sorting)
+
+        sorting_layout.addWidget(self.sort_column_combo)
+        sorting_layout.addWidget(self.sort_order_combo)
+        sorting_layout.addWidget(self.sort_button)
+
+        sorting_group.setLayout(sorting_layout)
+        main_layout.addWidget(sorting_group, 1, 0, 1, 2)
+
+        # OK and Cancel Buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        main_layout.addWidget(button_box, 2, 0, 1, 2)
+
+        self.setLayout(main_layout)
+
+    def toggle_column_visibility(self, column_index, state):
+        print(state)
+        if state == 2:  # show
+            self.parent().table_view.showColumn(column_index)
+            self.parent().column_visibility[column_index] = True
+        if state == 0:  # hide
+            self.parent().table_view.hideColumn(column_index)
+            self.parent().column_visibility[column_index] = False
+
+        self.data_model.layoutChanged.emit()
+        self.data_model.dataChanged.emit(QModelIndex(), QModelIndex())
+
+    def update_filter(self, column_index, text):
+        self.data_model._apply_filter(column_index, filter_value=text)
+        self.data_model.layoutChanged.emit()
+        self.data_model.dataChanged.emit(QModelIndex(), QModelIndex())
+
+    def apply_sorting(self):
+        sort_column = self.sort_column_combo.currentText()
+        sort_order = self.sort_order_combo.currentText()
+
+        try:
+            if sort_order == "Ascending":
+                self.data_model.filtered_data.sort_values(by=sort_column, inplace=True, ascending=True)
+            else:
+                self.data_model.filtered_data.sort_values(by=sort_column, inplace=True, ascending=False)
+
+            self.data_model.layoutChanged.emit()
+            self.data_model.dataChanged.emit(QModelIndex(), QModelIndex())
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Sorting failed: {e}")
+
 
 class DataPreviewWidget(QWidget):
     finished = pyqtSignal()
@@ -29,6 +120,7 @@ class DataPreviewWidget(QWidget):
         super().__init__(parent)
 
         self.setWindowTitle("Data Viewer")
+        self.column_visibility = [True for _ in range(data.shape[1])]  # init column visibility
 
         # Create the table view and set editability
         self.table_view = QTableView()
@@ -46,14 +138,22 @@ class DataPreviewWidget(QWidget):
         self.clear_filters_button = QPushButton("Clear Filters")
         self.clear_filters_button.clicked.connect(self.clear_filters)
 
+        # Create the "Configure" button
+        self.configure_button = QPushButton("Configure")
+        self.configure_button.clicked.connect(self.show_configure_dialog)
+
         # Create labels for row counts
         self.filtered_rows_label = QLabel("Filtered Rows: 0")
         self.total_rows_label = QLabel(f"Total Rows: {data.shape[0]}")
 
+        top_buttons_layout = QHBoxLayout()
+        top_buttons_layout.addWidget(self.configure_button)
+        top_buttons_layout.addWidget(self.clear_filters_button)
+
         # Create the layout
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Data Preview:"))
-        layout.addWidget(self.clear_filters_button)
+        layout.addLayout(top_buttons_layout)
         layout.addWidget(self.table_view)
 
         # Add row count labels at the bottom
@@ -73,7 +173,11 @@ class DataPreviewWidget(QWidget):
 
         # Connect to header section clicked signal to show the column visibility menu
         self.table_view.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.table_view.horizontalHeader().customContextMenuRequested.connect(self.show_column_visibility_menu)
+        # self.table_view.horizontalHeader().customContextMenuRequested.connect(self.show_column_visibility_menu)
+
+    def show_configure_dialog(self):
+        dialog = ConfigureDialog(self.data_model, self)
+        dialog.exec()
 
     def closeEvent(self, event):
         self.finished.emit()
@@ -103,29 +207,29 @@ class DataPreviewWidget(QWidget):
 
         menu.exec(self.table_view.viewport().mapToGlobal(pos))
 
-    def show_column_visibility_menu(self, pos):
-        """Shows a menu to toggle column visibility."""
-        index = self.table_view.indexAt(pos)
-        if index.isValid():
-
-            menu = QMenu(self)
-            column_name = self.data_model.headerData(index.column(), Qt.Orientation.Horizontal,
-                                                     Qt.ItemDataRole.DisplayRole)
-            ic(index.column())
-            ic(column_name)
-            if self.data_model.column_visibility[index.column()]:
-                # Column is visible, create an action to hide it
-                hide_action = QAction(f"Minimize '{column_name}'", self)
-                hide_action.triggered.connect(lambda: self.toggle_column_visibility(index.column(), False))
-                menu.addAction(hide_action)
-            else:
-                # Column is hidden, create an action to show it
-                show_action = QAction(f"Restore '{column_name}'", self)
-                show_action.triggered.connect(lambda: self.toggle_column_visibility(index.column(), True))
-                menu.addAction(show_action)
-
-            # menu.exec(self.table_view.viewport().mapToGlobal(self.table_view.horizontalHeader().mapToGlobal(QPoint(index.column() * self.table_view.horizontalHeader().sectionSize(logicalIndex), 0))))
-            menu.exec(self.table_view.viewport().mapToGlobal(pos))
+    # def show_column_visibility_menu(self, pos):
+    #     """Shows a menu to toggle column visibility."""
+    #     index = self.table_view.indexAt(pos)
+    #     if index.isValid():
+    #
+    #         menu = QMenu(self)
+    #         column_name = self.data_model.headerData(index.column(), Qt.Orientation.Horizontal,
+    #                                                  Qt.ItemDataRole.DisplayRole)
+    #         ic(index.column())
+    #         ic(column_name)
+    #         if self.data_model.column_visibility[index.column()]:
+    #             # Column is visible, create an action to hide it
+    #             hide_action = QAction(f"Minimize '{column_name}'", self)
+    #             hide_action.triggered.connect(lambda: self.toggle_column_visibility(index.column(), False))
+    #             menu.addAction(hide_action)
+    #         else:
+    #             # Column is hidden, create an action to show it
+    #             show_action = QAction(f"Restore '{column_name}'", self)
+    #             show_action.triggered.connect(lambda: self.toggle_column_visibility(index.column(), True))
+    #             menu.addAction(show_action)
+    #
+    #         # menu.exec(self.table_view.viewport().mapToGlobal(self.table_view.horizontalHeader().mapToGlobal(QPoint(index.column() * self.table_view.horizontalHeader().sectionSize(logicalIndex), 0))))
+    #         menu.exec(self.table_view.viewport().mapToGlobal(pos))
 
     def clear_filters(self):
         self.data_model.clear_filters()
@@ -136,15 +240,19 @@ class DataPreviewWidget(QWidget):
 
     def toggle_column_visibility(self, column_index, visible):
         """Toggles the visibility of the specified column."""
-        self.data_model.column_visibility[column_index] = visible
+        # self.data_model.column_visibility[column_index] = visible
         header = self.table_view.horizontalHeader()
         if visible:
             # Restore the column's size
+            self.table_view.setColumnHidden(column_index, False)
+
             header.resizeSection(column_index, header.sectionSize(column_index))
+
         else:
-            # Minimize the column
-            self.table_view.setColumnWidth(column_index, 5)  # Set to 10 pixels wide
-            header.resizeSection(column_index, -5)  # Set to 10 pixels wide
+            # Hide the column completely
+            header.resizeSection(column_index, 0)  # Set width to 0
+            self.table_view.setColumnHidden(column_index, True)
+
         self.data_model.layoutChanged.emit()
         self.data_model.dataChanged.emit(QModelIndex(), QModelIndex())
 
@@ -156,7 +264,7 @@ class DataModel(QAbstractTableModel):
         # Apply filters to _data
         self.filtered_data = self._data  # no filters now
         self._filters = ['' for _ in range(data.shape[1])]
-        self.column_visibility = [True for _ in range(data.shape[1])]  # init column visibility
+        # self.column_visibility = [True for _ in range(data.shape[1])]  # init column visibility
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if index.row() == 0:  # First row (filter row) is always editable
@@ -179,12 +287,12 @@ class DataModel(QAbstractTableModel):
         return self._data.shape[1]
 
     def data(self, index, role):
-        # If the column is minimized, return an empty string for DisplayRole
-        if not self.column_visibility[index.column()] and role == Qt.ItemDataRole.DisplayRole:
-            return ''
-        if not self.column_visibility[index.column()] and role == Qt.ItemDataRole.SizeHintRole:
-            # Ensure the size hint is small enough for the minimized column
-            return QSize(5, 0)
+        # # If the column is minimized, return an empty string for DisplayRole
+        # if not self.column_visibility[index.column()] and role == Qt.ItemDataRole.DisplayRole:
+        #     return ''
+        # if not self.column_visibility[index.column()] and role == Qt.ItemDataRole.SizeHintRole:
+        #     # Ensure the size hint is small enough for the minimized column
+        #     return QSize(5, 0)
 
         if index.row() == 0 and role == Qt.ItemDataRole.DisplayRole:
             value = self._filters[index.column()]
@@ -248,10 +356,7 @@ class DataModel(QAbstractTableModel):
         # section is the index of the column/row.
         if role == Qt.ItemDataRole.DisplayRole:
             if orientation == Qt.Orientation.Horizontal:
-                if self.column_visibility[section]:
-                    return str(self._data.columns[section])
-                else:
-                    return "*"  # Show a minimal symbol in the header
+                return str(self._data.columns[section])
 
             if orientation == Qt.Orientation.Vertical:
                 if section == 0:  # Header for filter row
@@ -306,7 +411,7 @@ if __name__ == "__main__":
     data = generate_test_data(num_rows=10000, num_cols=20, max_string_length=2)  # Generate 10 rows, 10 columns
 
     # # load data
-    # test_labor = get_user_data_path() / "labor1.data"  # TODO!
+    # test_labor = get_user_data_path() / "labor1.data"
     # global_data = global_data_obj(fname=test_labor)
     # global_data.restore_data()
     # data = pd.DataFrame.from_dict(global_data.module, orient='index')
