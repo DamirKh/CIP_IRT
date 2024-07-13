@@ -1,3 +1,4 @@
+import pickle
 import sys
 from pprint import pprint
 
@@ -22,6 +23,7 @@ from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize, py
 
 from global_data import global_data_obj
 from saver import get_user_data_path
+
 
 class ConfigureDialog(QDialog):
     def __init__(self, data_model, parent=None):
@@ -116,11 +118,11 @@ class ConfigureDialog(QDialog):
 
 class DataPreviewWidget(QWidget):
     finished = pyqtSignal()
+
     def __init__(self, data, parent=None):
         super().__init__(parent)
 
         self.setWindowTitle("Data Viewer")
-        self.column_visibility = [True for _ in range(data.shape[1])]  # init column visibility
 
         # Create the table view and set editability
         self.table_view = QTableView()
@@ -133,6 +135,11 @@ class DataPreviewWidget(QWidget):
         # Create the data model
         self.data_model = DataModel(data)
         self.table_view.setModel(self.data_model)
+
+        # Load view settings from file (if exists)
+        self.settings_file = get_user_data_path() / "data_preview_settings.pkl"
+        # self.column_visibility = [True for _ in range(data.shape[1])]  # init column visibility
+        self.load_settings(data.shape[1])
 
         # Create the "clear filters" button
         self.clear_filters_button = QPushButton("Clear Filters")
@@ -171,15 +178,50 @@ class DataPreviewWidget(QWidget):
         self.table_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table_view.customContextMenuRequested.connect(self.show_context_menu)
 
+        for column_index, saved_visibility in enumerate(self.column_visibility):
+            self.toggle_column_visibility(column_index, saved_visibility)
+
+        for column_index, saved_filter in enumerate(self.data_model._filters):
+            self.data_model._apply_filter(column_index, saved_filter)
+
         # Connect to header section clicked signal to show the column visibility menu
-        self.table_view.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        # self.table_view.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         # self.table_view.horizontalHeader().customContextMenuRequested.connect(self.show_column_visibility_menu)
 
     def show_configure_dialog(self):
         dialog = ConfigureDialog(self.data_model, self)
         dialog.exec()
 
+    def load_settings(self, columns_num: int):
+        """Loads settings from a pickle file."""
+        if self.settings_file.exists():
+            try:
+                with open(self.settings_file, 'rb') as f:
+                    settings = pickle.load(f)
+                    self.column_visibility = settings.get("column_visibility", [True for _ in range(columns_num)])
+                    self.data_model._filters = settings.get("filters", ['' for _ in range(columns_num)])
+            except (pickle.PickleError, EOFError) as e:
+                QMessageBox.warning(self, "Error", f"Failed to load settings: {e}")
+                self.column_visibility = [True for _ in range(columns_num)]  # init column visibility
+                self.data_model._filters = settings.get("filters", ['' for _ in range(columns_num)])
+        else:
+            self.column_visibility = [True for _ in range(columns_num)]  # init column visibility
+            self.data_model._filters = ['' for _ in range(columns_num)]
+
+    def save_settings(self):
+        """Saves settings to a pickle file."""
+        settings = {
+            "column_visibility": self.column_visibility,
+            "filters": self.data_model._filters,
+        }
+        try:
+            with open(self.settings_file, 'wb') as f:
+                pickle.dump(settings, f)
+        except pickle.PickleError as e:
+            QMessageBox.warning(self, "Error", f"Failed to save settings: {e}")
+
     def closeEvent(self, event):
+        self.save_settings()  # Save settings before closing
         self.finished.emit()
         super().closeEvent(event)
 
@@ -206,30 +248,6 @@ class DataPreviewWidget(QWidget):
             menu.addAction(drop_filter_action)
 
         menu.exec(self.table_view.viewport().mapToGlobal(pos))
-
-    # def show_column_visibility_menu(self, pos):
-    #     """Shows a menu to toggle column visibility."""
-    #     index = self.table_view.indexAt(pos)
-    #     if index.isValid():
-    #
-    #         menu = QMenu(self)
-    #         column_name = self.data_model.headerData(index.column(), Qt.Orientation.Horizontal,
-    #                                                  Qt.ItemDataRole.DisplayRole)
-    #         ic(index.column())
-    #         ic(column_name)
-    #         if self.data_model.column_visibility[index.column()]:
-    #             # Column is visible, create an action to hide it
-    #             hide_action = QAction(f"Minimize '{column_name}'", self)
-    #             hide_action.triggered.connect(lambda: self.toggle_column_visibility(index.column(), False))
-    #             menu.addAction(hide_action)
-    #         else:
-    #             # Column is hidden, create an action to show it
-    #             show_action = QAction(f"Restore '{column_name}'", self)
-    #             show_action.triggered.connect(lambda: self.toggle_column_visibility(index.column(), True))
-    #             menu.addAction(show_action)
-    #
-    #         # menu.exec(self.table_view.viewport().mapToGlobal(self.table_view.horizontalHeader().mapToGlobal(QPoint(index.column() * self.table_view.horizontalHeader().sectionSize(logicalIndex), 0))))
-    #         menu.exec(self.table_view.viewport().mapToGlobal(pos))
 
     def clear_filters(self):
         self.data_model.clear_filters()
@@ -287,13 +305,6 @@ class DataModel(QAbstractTableModel):
         return self._data.shape[1]
 
     def data(self, index, role):
-        # # If the column is minimized, return an empty string for DisplayRole
-        # if not self.column_visibility[index.column()] and role == Qt.ItemDataRole.DisplayRole:
-        #     return ''
-        # if not self.column_visibility[index.column()] and role == Qt.ItemDataRole.SizeHintRole:
-        #     # Ensure the size hint is small enough for the minimized column
-        #     return QSize(5, 0)
-
         if index.row() == 0 and role == Qt.ItemDataRole.DisplayRole:
             value = self._filters[index.column()]
             return str(value)
