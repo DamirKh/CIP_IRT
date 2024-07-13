@@ -37,7 +37,7 @@ class ConfigureDialog(QDialog):
         main_layout = QGridLayout()
 
         # Column Visibility and Filter Section
-        column_group = QGroupBox("Column Visibility & Filters")
+        column_group = QGroupBox("Column Visibility and Filters")
         column_layout = QGridLayout()
 
         # Create labels, checkboxes, and line edits
@@ -192,6 +192,25 @@ class DataPreviewWidget(QWidget):
         dialog = ConfigureDialog(self.data_model, self)
         dialog.exec()
 
+    def save_column_widths(self):
+        """Returns a list of column widths."""
+        return [self.table_view.columnWidth(i) for i in range(self.data_model.columnCount(QModelIndex()))]
+
+    def restore_column_widths(self, widths):
+        """Restores column widths from a list."""
+        for i, width in enumerate(widths):
+            if i < self.data_model.columnCount(QModelIndex()):
+                self.table_view.setColumnWidth(i, width)
+
+    def save_window_size(self):
+        """Returns the current window size."""
+        return self.size()
+
+    def restore_window_size(self, size):
+        """Restores the window size."""
+        if size:
+            self.resize(size)
+
     def load_settings(self, columns_num: int):
         """Loads settings from a pickle file."""
         if self.settings_file.exists():
@@ -200,6 +219,8 @@ class DataPreviewWidget(QWidget):
                     settings = pickle.load(f)
                     self.column_visibility = settings.get("column_visibility", [True for _ in range(columns_num)])
                     self.data_model._filters = settings.get("filters", ['' for _ in range(columns_num)])
+                    self.restore_column_widths(settings.get("column_widths", []))  # Restore column widths
+                    self.restore_window_size(settings.get("window_size"))  # Restore window size
             except (pickle.PickleError, EOFError) as e:
                 QMessageBox.warning(self, "Error", f"Failed to load settings: {e}")
                 self.column_visibility = [True for _ in range(columns_num)]  # init column visibility
@@ -213,6 +234,8 @@ class DataPreviewWidget(QWidget):
         settings = {
             "column_visibility": self.column_visibility,
             "filters": self.data_model._filters,
+            "column_widths": self.save_column_widths(),  # Save column widths
+            "window_size": self.save_window_size()  # Save window size
         }
         try:
             with open(self.settings_file, 'wb') as f:
