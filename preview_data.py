@@ -1,3 +1,4 @@
+import os
 import pickle
 import sys
 from pprint import pprint
@@ -23,6 +24,7 @@ from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize, py
 
 from global_data import global_data_obj
 from saver import get_user_data_path
+from user_data import basedir, asset_dir
 
 
 class ConfigureDialog(QDialog):
@@ -143,10 +145,13 @@ class DataPreviewWidget(QWidget):
 
         # Create the "clear filters" button
         self.clear_filters_button = QPushButton("Clear Filters")
+        self.clear_filters_button.setIcon(QIcon(os.path.join(asset_dir, "clear-alt.png")))
         self.clear_filters_button.clicked.connect(self.clear_filters)
 
         # Create the "Configure" button
         self.configure_button = QPushButton("Configure")
+        self.configure_button.setIcon(QIcon(os.path.join(asset_dir, "module.png")))
+
         self.configure_button.clicked.connect(self.show_configure_dialog)
 
         # Create labels for row counts
@@ -156,6 +161,9 @@ class DataPreviewWidget(QWidget):
         top_buttons_layout = QHBoxLayout()
         top_buttons_layout.addWidget(self.configure_button)
         top_buttons_layout.addWidget(self.clear_filters_button)
+        # Add a spacer to the right of the top buttons
+        spacer_hor = QWidget()
+        top_buttons_layout.addWidget(spacer_hor, stretch=1)
 
         # Create the layout
         layout = QVBoxLayout()

@@ -42,10 +42,7 @@ from global_data import global_data_obj
 
 import preview_data
 
-# Constants for clarity
-basedir = os.path.dirname(__file__)
-asset_dir = os.path.join(basedir, 'asset')
-
+from user_data import basedir, asset_dir
 
 def load_data(path):
   """Loads data from all files with "*.data" extension in the specified path.
@@ -152,7 +149,7 @@ class MainWindow(QWidget):
             # Add a button to add new rows
             self.add_row_button = QPushButton("Add System")
             self.add_row_button.setIcon(
-                QIcon(os.path.join(asset_dir, "Custom-Icon-Design-Pretty-Office-9-New-file.32.png")))
+                QIcon(os.path.join(asset_dir, "add.png")))
             self.add_row_button.setIconSize(QSize(32, 32))
             self.add_row_button.setToolTip("Add system")
             self.add_row_button.setText("")
@@ -163,7 +160,7 @@ class MainWindow(QWidget):
             # Add a button to save config
             self.save_config_button = QPushButton("Save config")
             self.save_config_button.setIcon(
-                QIcon(os.path.join(asset_dir, "Custom-Icon-Design-Pretty-Office-9-Edit-validated.32.png")))
+                QIcon(os.path.join(asset_dir, "floppy-disks.png")))
             self.save_config_button.setIconSize(QSize(32, 32))
             self.save_config_button.setToolTip("Save config for future use")
             self.save_config_button.setText("")
@@ -173,7 +170,7 @@ class MainWindow(QWidget):
 
             # Add a button to RUN
             self.run_button = QPushButton("SCAN")
-            self.run_button.setIcon(QIcon(os.path.join(asset_dir, "Alecive-Flatwoken-Apps-Run.32.png")))
+            self.run_button.setIcon(QIcon(os.path.join(asset_dir, "progress-upload.png")))
             self.run_button.setIconSize(QSize(32, 32))
             self.run_button.setToolTip("Scan selected rows")
             self.run_button.setText("")
@@ -183,7 +180,7 @@ class MainWindow(QWidget):
 
             # Add a button to View
             self.run_button = QPushButton("View")
-            self.run_button.setIcon(QIcon(os.path.join(asset_dir, "Custom-Icon-Design-Pretty-Office-9-Magnifying-glass.24.png")))
+            self.run_button.setIcon(QIcon(os.path.join(asset_dir, "arrows-to-eye.png")))
             self.run_button.setIconSize(QSize(32, 32))
             self.run_button.setToolTip("View data")
             self.run_button.setText("")
