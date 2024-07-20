@@ -63,12 +63,7 @@ python main_prog.py
 - icecream (optional, for debugging)
 
 ### Dependencies
-
-- `scanner.py`: This module handles the ControlNet scanning process. It should contain a class named `PreScaner` that performs the scan operation and emits signals for progress, errors, and found modules.
-- `ip_addr_widget.py`: This module provides custom widgets for entering system names and IP addresses. It should contain the `IPAddressWidget` and `SystemNameWidget` classes.
-- `ping_widget.py`: This module provides a widget for pinging IP addresses. It should contain the `PingWidget` class.
-- `global_data.py`: This module handles storing and retrieving scanned data.
-- `preview_data.py`: This module contains the `DataPreviewWidget` class that enables browsing and analyzing collected data.
+No external dependencies. No RSLinx, no RSNetWorx  and so on.
 
 ### Contributing
 
