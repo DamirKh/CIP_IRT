@@ -31,10 +31,13 @@ class PingWidget(QWidget):
         # Create a horizontal layout for the square labels
         square_layout = QHBoxLayout()
         # Add a spacer first
-        spacer_hor = QWidget()
-        square_layout.addWidget(spacer_hor, stretch=1)
+        spacer_hor_left = QWidget()
+        spacer_hor_right = QWidget()
+        square_layout.addWidget(spacer_hor_left, stretch=1)
         for label in self.square_labels:
             square_layout.addWidget(label)
+        square_layout.addWidget(spacer_hor_right, stretch=1)
+
         self.setLayout(square_layout)
 
         # Initialize ping thread

@@ -39,13 +39,13 @@ from saver import get_user_data_path
 from scanner import Scaner
 from global_data import global_data_obj
 
-
 import preview_data
 
 from user_data import basedir, asset_dir
 
+
 def load_data(path):
-  """Loads data from all files with "*.data" extension in the specified path.
+    """Loads data from all files with "*.data" extension in the specified path.
 
   Args:
     path: The path to the directory containing the data files.
@@ -54,29 +54,30 @@ def load_data(path):
     A pandas DataFrame containing the combined data from all files.
   """
 
-  # Get a list of all files with "*.data" extension in the path
-  data_files = [f for f in os.listdir(path) if f.endswith(".data")]
+    # Get a list of all files with "*.data" extension in the path
+    data_files = [f for f in os.listdir(path) if f.endswith(".data")]
 
-  # Create an empty list to store the DataFrames
-  data_frames = []
+    # Create an empty list to store the DataFrames
+    data_frames = []
 
-  # Iterate through each data file and load the data
-  for file in data_files:
-    # Create the full file path
-    file_path = os.path.join(path, file)
+    # Iterate through each data file and load the data
+    for file in data_files:
+        # Create the full file path
+        file_path = os.path.join(path, file)
 
-    # Load data from the file
-    global_data = global_data_obj(fname=file_path)
-    global_data.restore_data()
-    df = pd.DataFrame.from_dict(global_data.module, orient='index')
+        # Load data from the file
+        global_data = global_data_obj(fname=file_path)
+        global_data.restore_data()
+        df = pd.DataFrame.from_dict(global_data.module, orient='index')
 
-    # Append the DataFrame to the list
-    data_frames.append(df)
+        # Append the DataFrame to the list
+        data_frames.append(df)
 
-  # Concatenate the list of DataFrames into a single DataFrame
-  data = pd.concat(data_frames, ignore_index=True)
+    # Concatenate the list of DataFrames into a single DataFrame
+    data = pd.concat(data_frames, ignore_index=True)
 
-  return data
+    return data
+
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -97,6 +98,7 @@ class MainWindow(QWidget):
         self.ping_status = []
         self.preview_buttons = []
         self.checkboxes = []
+        self.delete_buttons = []
 
         self.view_data_window = None
 
@@ -229,21 +231,20 @@ class MainWindow(QWidget):
         # **Connect to the 'finished' signal of the data preview window:**
         self.view_data_window.finished.connect(self.enable_main_window)
 
-
     def ping_checkbox_changed(self, state):
-            print(f'Ping enabled {self.ping_checkbox.checkState()}')
-            if state == 2:  # Qt.Checked
-                # print('Enable pinging')
-                for i, ping_widget in enumerate(self.ping_status):
-                    ping_widget.start_ping(self.entry_point[i].text())
-            elif state == 0:  # Qt.Unchecked
-                # print('Disable pinging')
-                self.ping_checkbox.setText('Wait...')
-                self.ping_checkbox.setEnabled(False)
-                for ping_widget in self.ping_status:
-                    ping_widget.stop_ping()
-                self.ping_checkbox.setText('Ping IP addresses')
-                self.ping_checkbox.setEnabled(True)
+        print(f'Ping enabled {self.ping_checkbox.checkState()}')
+        if state == 2:  # Qt.Checked
+            # print('Enable pinging')
+            for i, ping_widget in enumerate(self.ping_status):
+                ping_widget.start_ping(self.entry_point[i].text())
+        elif state == 0:  # Qt.Unchecked
+            # print('Disable pinging')
+            self.ping_checkbox.setText('Wait...')
+            self.ping_checkbox.setEnabled(False)
+            for ping_widget in self.ping_status:
+                ping_widget.stop_ping()
+            self.ping_checkbox.setText('Ping IP addresses')
+            self.ping_checkbox.setEnabled(True)
 
     def start_scan(self):
         if not len(self.system_name):
@@ -338,7 +339,37 @@ class MainWindow(QWidget):
             print("Rejected!")
             return
 
-    def handle_data(self,  system_name, ip_address, deep_scan=None, checked = False, last_scan_time=None):
+    def delete_row(self, row_index):
+        # Remove widgets from the grid layout
+        for i in range(len(self.system_name)):
+            if i == row_index:
+                self.grid_layout.removeWidget(self.system_name[i])
+                self.grid_layout.removeWidget(self.entry_point[i])
+                self.grid_layout.removeWidget(self.ping_status[i])
+                self.grid_layout.removeWidget(self.last_scan_time[i])
+                self.grid_layout.removeWidget(self.preview_buttons[i])
+                self.grid_layout.removeWidget(self.checkboxes[i])
+                self.grid_layout.removeWidget(self.delete_buttons[i])
+
+                # Remove items from lists
+                del self.system_name[i]
+                del self.entry_point[i]
+                del self.ping_status[i]
+                del self.last_scan_time[i]
+                del self.preview_buttons[i]
+                del self.checkboxes[i]
+                del self.delete_buttons[i]
+                break
+        # Update row indices
+        for i in range(row_index, len(self.system_name)):
+            self.checkboxes[i].setChecked(False)
+
+        # Adjust scroll area size
+        self.grid_layout.update()
+        self.grid_widget.updateGeometry()
+        self.scroll_area.updateGeometry()
+
+    def handle_data(self, system_name, ip_address, deep_scan=None, checked=False, last_scan_time=None):
 
         # Receive data and use it to add a row
         # ... (add a row to the grid layout)
@@ -375,6 +406,11 @@ class MainWindow(QWidget):
         self.grid_layout.addWidget(self.last_scan_time[job_no], row_index, 5)
         self.grid_layout.addWidget(self.preview_buttons[job_no], row_index, 7)
 
+        # Create delete button
+        self.delete_buttons.append(QPushButton("Delete"))
+        self.delete_buttons[-1].clicked.connect(lambda: self.delete_row(row_index - 1))
+        self.grid_layout.addWidget(self.delete_buttons[-1], row_index, 6)
+
         # Add spacer
         self.grid_layout.addWidget(self.spacer, row_index + 1, 0)
 
@@ -393,11 +429,11 @@ class MainWindow(QWidget):
         print(f"Apply prev job list...")
         for job in saved_configs:
             self.handle_data(
-                            checked=job['checked'],
-                            system_name=job['system_name'],
-                            ip_address=job['entry_point'],
-                            last_scan_time=job['last_scan_time']
-                            )
+                checked=job['checked'],
+                system_name=job['system_name'],
+                ip_address=job['entry_point'],
+                last_scan_time=job['last_scan_time']
+            )
         pass
 
 
