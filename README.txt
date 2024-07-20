@@ -74,8 +74,4 @@ python main_prog.py
 
 Contributions are welcome! Please feel free to fork the repository, make changes, and submit pull requests.
 
-### License
 
-This project is licensed under the MIT License.
-
-This README provides a starting point for your project. Feel free to customize it with specific details, instructions, and information relevant to your application.
