@@ -74,7 +74,7 @@ def load_data(path):
         data_frames.append(df)
 
     # Concatenate the list of DataFrames into a single DataFrame
-    data = pd.concat(data_frames, ignore_index=True)
+    data = pd.concat(data_frames, ignore_index=False)
 
     return data
 

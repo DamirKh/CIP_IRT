@@ -376,14 +376,21 @@ class DataModel(QAbstractTableModel):
 
         for i, filter_value in enumerate(self._filters):
             if filter_value:
-                # Split filter values by space and apply OR logic
-                filter_terms = filter_value.split()
-                if filter_terms:
-                    filter_mask = False
-                    for term in filter_terms:
-                        filter_mask = filter_mask | self.filtered_data.iloc[:, i].astype(str).str.contains(term,
-                                                                                                           case=False)
-                    self.filtered_data = self.filtered_data[filter_mask]
+                if filter_value == "EMPTY":
+                    # Filter for empty cells
+                    self.filtered_data = self.filtered_data[self.filtered_data.iloc[:, i].isnull()]
+                elif filter_value == "/EMPTY":
+                    # Filter for non-empty cells
+                    self.filtered_data = self.filtered_data[~self.filtered_data.iloc[:, i].isnull()]
+                else:
+                    # Split filter values by space and apply OR logic
+                    filter_terms = filter_value.split()
+                    if filter_terms:
+                        filter_mask = False
+                        for term in filter_terms:
+                            filter_mask = filter_mask | self.filtered_data.iloc[:, i].astype(str).str.contains(term,
+                                                                                                               case=False)
+                        self.filtered_data = self.filtered_data[filter_mask]
 
         self.layoutChanged.emit()
         self.dataChanged.emit(QModelIndex(), QModelIndex())
@@ -402,7 +409,7 @@ class DataModel(QAbstractTableModel):
 
             if orientation == Qt.Orientation.Vertical:
                 if section == 0:  # Header for filter row
-                    return "Filters -->"
+                    return "Filters ⟹"
                 elif section > 0:  # Headers for data rows
                     return str(self.filtered_data.index[section - 1])
         # filtered by value in this column highlighted
