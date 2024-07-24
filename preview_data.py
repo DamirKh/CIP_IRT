@@ -192,9 +192,6 @@ class DataPreviewWidget(QWidget):
         for column_index, saved_filter in enumerate(self.data_model._filters):
             self.data_model._apply_filter(column_index, saved_filter)
 
-        # Connect to header section clicked signal to show the column visibility menu
-        # self.table_view.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        # self.table_view.horizontalHeader().customContextMenuRequested.connect(self.show_column_visibility_menu)
 
     def show_configure_dialog(self):
         dialog = ConfigureDialog(self.data_model, self)
@@ -277,6 +274,18 @@ class DataPreviewWidget(QWidget):
                 lambda: self.data_model._apply_filter(index.column(), '')
             )
             menu.addAction(drop_filter_action)
+
+        filter_by_empty_action = QAction(f"Filter by EMPTY", self)
+        filter_by_empty_action.triggered.connect(
+            lambda: self.data_model._apply_filter(index.column(), "*EMPTY*")
+        )
+        menu.addAction(filter_by_empty_action)
+
+        filter_by_not_empty_action = QAction(f"Filter by NOT EMPTY", self)
+        filter_by_not_empty_action.triggered.connect(
+            lambda: self.data_model._apply_filter(index.column(), "*NOT_EMPTY*")
+        )
+        menu.addAction(filter_by_not_empty_action)
 
         menu.exec(self.table_view.viewport().mapToGlobal(pos))
 
@@ -376,10 +385,10 @@ class DataModel(QAbstractTableModel):
 
         for i, filter_value in enumerate(self._filters):
             if filter_value:
-                if filter_value == "EMPTY":
+                if filter_value == "*EMPTY*":
                     # Filter for empty cells
                     self.filtered_data = self.filtered_data[self.filtered_data.iloc[:, i].isnull()]
-                elif filter_value == "/EMPTY":
+                elif filter_value == "*NOT_EMPTY*":
                     # Filter for non-empty cells
                     self.filtered_data = self.filtered_data[~self.filtered_data.iloc[:, i].isnull()]
                 else:
