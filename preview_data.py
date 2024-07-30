@@ -330,11 +330,21 @@ class DataPreviewWidget(QWidget):
         )
 
         if file_path:
+            export_all = QMessageBox.question(
+                self, "Export Options",
+                "Export all data (including filtered out rows)?"
+            )
             try:
                 if file_path.endswith(".xlsx"):
-                    self.data_model.filtered_data.to_excel(file_path, index=False)  # Export to Excel
+                    if export_all == QMessageBox.StandardButton.Yes:
+                        self.data_model._data.to_excel(file_path, index=False)  # Export all data to Excel
+                    else:
+                        self.data_model.filtered_data.to_excel(file_path, index=False)  # Export filtered data to Excel
                 else:
-                    self.data_model.filtered_data.to_csv(file_path, index=False)  # Export to CSV
+                    if export_all == QMessageBox.StandardButton.Yes:
+                        self.data_model._data.to_csv(file_path, index=False)  # Export all data to CSV
+                    else:
+                        self.data_model.filtered_data.to_csv(file_path, index=False)  # Export filtered data to CSV
                 QMessageBox.information(self, "Success", f"Data exported to {file_path}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to export data: {e}")
