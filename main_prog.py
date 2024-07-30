@@ -329,7 +329,7 @@ class MainWindow(QWidget):
         return
 
     def add_row(self):
-        add_system = AddSystemDialog(self)
+        add_system = AddSystemDialog(self, system_names_defined=[_.text() for _ in self.system_name])
 
         # Connect the signal to the slot
         add_system.data_ready.connect(self.handle_data)

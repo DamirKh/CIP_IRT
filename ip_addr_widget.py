@@ -58,13 +58,14 @@ class IPAddressWidget(QWidget):
         return self.ip_input.text()
 
 class SystemNameWidget(QWidget):
-    def __init__(self):
+    def __init__(self, not_use_this_names=[]):
         super().__init__()
 
         # self.setWindowTitle("IP Address Input")
 
         self._label = QLabel("System Name:")
         self._input = QLineEdit()
+        self.not_use_this_names = not_use_this_names
 
         self._valid = False
 
@@ -85,6 +86,10 @@ class SystemNameWidget(QWidget):
 
     def validate_input(self):
         system_name = self._input.text()
+        if system_name in self.not_use_this_names:
+            self._input.setStyleSheet("background-color: lightcoral;")
+            self._valid = False
+            return
         if system_name:
             if not " " in system_name:
                 self._input.setStyleSheet("background-color: lightgreen;")

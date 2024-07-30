@@ -22,12 +22,13 @@ class PreScaner(QThread):
     module_found = pyqtSignal(dict)  # signal when found any module
     cn_nodes_found = pyqtSignal(list)  #signal when scan cn network complete
 
-    def __init__(self, entry_point: str, system_name: str = 'sss', deep_scan: bool = False):
+    def __init__(self, entry_point: str, system_name: str = 'sss', deep_scan: bool = False, max_node_num = 99):
         super().__init__()
         self.entry_point = entry_point
         self.deep_scan = deep_scan
         self.found_paths_dict = {}
         self.scanned = set()
+        self.max_node_num = max_node_num
 
     def _progress_update(self, *args, **kwargs):
         log_message = ' '.join(str(a) for a in args)
@@ -57,8 +58,8 @@ class PreScaner(QThread):
                 for cn_serial, cip_path in cn_path.items():
                     controlnet_nodes, cn_modules_paths = scan_cn(cip_path,
                                                                  p=self._progress_update,
-                                                                 current_cn_node_update=self._current_cn_node_update
-                                                                 )
+                                                                 current_cn_node_update=self._current_cn_node_update,
+                                                                 max_node_num=self.max_node_num)
                     # global_data.cn_nodes.append(controlnet_nodes)
                     if len(controlnet_nodes) > 1:
                         for bp, p in cn_modules_paths.items():
