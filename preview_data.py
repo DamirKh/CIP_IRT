@@ -4,6 +4,7 @@ import sys
 from pprint import pprint
 
 import pandas as pd
+import openpyxl
 
 from icecream import ic
 
@@ -17,6 +18,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QMenu,
     QHeaderView, QMessageBox, QDialogButtonBox, QComboBox, QGroupBox, QLineEdit, QGridLayout, QCheckBox, QDialog,
+    QFileDialog,
 )
 from PyQt6 import QtGui
 from PyQt6.QtGui import QAction, QIcon
@@ -161,6 +163,14 @@ class DataPreviewWidget(QWidget):
         top_buttons_layout = QHBoxLayout()
         top_buttons_layout.addWidget(self.configure_button)
         top_buttons_layout.addWidget(self.clear_filters_button)
+
+        # Create the "Export" button
+        self.export_button = QPushButton("Export")
+        self.export_button.setIcon(QIcon(os.path.join(asset_dir, "export.png")))
+        self.export_button.clicked.connect(self.export_data)
+
+        top_buttons_layout.addWidget(self.export_button)
+
         # Add a spacer to the right of the top buttons
         spacer_hor = QWidget()
         top_buttons_layout.addWidget(spacer_hor, stretch=1)
@@ -191,7 +201,6 @@ class DataPreviewWidget(QWidget):
 
         for column_index, saved_filter in enumerate(self.data_model._filters):
             self.data_model._apply_filter(column_index, saved_filter)
-
 
     def show_configure_dialog(self):
         dialog = ConfigureDialog(self.data_model, self)
@@ -313,6 +322,22 @@ class DataPreviewWidget(QWidget):
 
         self.data_model.layoutChanged.emit()
         self.data_model.dataChanged.emit(QModelIndex(), QModelIndex())
+
+    def export_data(self):
+        """Exports the filtered data to an Excel or CSV file."""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export Data", "", "Excel Files (*.xlsx);;CSV Files (*.csv)"
+        )
+
+        if file_path:
+            try:
+                if file_path.endswith(".xlsx"):
+                    self.data_model.filtered_data.to_excel(file_path, index=False)  # Export to Excel
+                else:
+                    self.data_model.filtered_data.to_csv(file_path, index=False)  # Export to CSV
+                QMessageBox.information(self, "Success", f"Data exported to {file_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to export data: {e}")
 
 
 class DataModel(QAbstractTableModel):
