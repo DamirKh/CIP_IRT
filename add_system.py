@@ -4,12 +4,15 @@ from pprint import pprint
 
 from PyQt6.QtGui import QTextCursor, QFont
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QTextEdit, QCheckBox, QHBoxLayout, QDialog
+from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QTextEdit, QCheckBox, QHBoxLayout, \
+    QDialog, QSpinBox
+from icecream import ic
 
 from scanner import PreScaner
 from ip_addr_widget import IPAddressWidget, SystemNameWidget
 
 from ping_widget import PingWidget
+
 
 # from global_data import global_data
 
@@ -21,7 +24,7 @@ class AddSystemDialog(QDialog):
     # Define a signal to emit data
     data_ready = pyqtSignal(str, str, bool)  # Arguments for name, IP, deep scan
 
-    def __init__(self, parent = None):
+    def __init__(self, parent=None, system_names_defined=[]):
         super().__init__(parent)
         self.setWindowTitle("Add new entry point")
 
@@ -29,7 +32,8 @@ class AddSystemDialog(QDialog):
         self.ping = PingWidget(q=10, size=20)
         self.ping_checkbox = QCheckBox('Ping IP address')
         self.ping_checkbox.stateChanged.connect(self.ping_checkbox_changed)
-        self.system_name = SystemNameWidget()
+        self.system_name = SystemNameWidget(not_use_this_names=system_names_defined)
+        self.system_name._input.textChanged.connect(self.validate_ip)
         self.ip_widget = IPAddressWidget()
         self.ip_widget.ip_input.textChanged.connect(self.validate_ip)
         self.deep_scan_checkbox = QCheckBox('Deep scan')
@@ -44,6 +48,12 @@ class AddSystemDialog(QDialog):
         self.button_add = QPushButton("Add")
         self.button_add.clicked.connect(self.accept)
 
+        # New Max Node Num Widget
+        self.max_node_num_widget = QSpinBox()
+        self.max_node_num_widget.setMinimum(1)
+        self.max_node_num_widget.setMaximum(99)
+        self.max_node_num_widget.setValue(99)  # Default value
+
         # Layouts
         layout_name_ip = QHBoxLayout()  # Horizontal layout for name and IP
         layout_name_ip.addWidget(self.system_name)
@@ -52,6 +62,10 @@ class AddSystemDialog(QDialog):
         layout_ping = QHBoxLayout()  # Horizontal layout for ping widget
         layout_ping.addWidget(self.ping)
         layout_ping.addWidget(self.ping_checkbox)
+
+        layout_max_node = QHBoxLayout()  # Horizontal layout for max node widget
+        layout_max_node.addWidget(QLabel("Max Node Num:"))
+        layout_max_node.addWidget(self.max_node_num_widget)
 
         checkbox_layout = QHBoxLayout()
         checkbox_layout.addWidget(self.deep_scan_checkbox)
@@ -65,6 +79,7 @@ class AddSystemDialog(QDialog):
         main_layout = QVBoxLayout()  # Main vertical layout
         main_layout.addLayout(layout_name_ip)
         main_layout.addLayout(layout_ping)  # Add ping widget layout
+        main_layout.addLayout(layout_max_node)  # Add max node widget layout
         main_layout.addLayout(checkbox_layout)
         main_layout.addWidget(self.label)
         main_layout.addLayout(button_layout)  # Add button layout
@@ -77,17 +92,22 @@ class AddSystemDialog(QDialog):
         self.cn_label.setText(f"Now scanning CN node: [{cn_node}]")
 
     def ping_checkbox_changed(self, state):
-        if state == 2: # Qt.Checked
+        if state == 2:  # Qt.Checked
             self.ping.start_ping(self.ip_widget.get_ip())
-        else: # Qt.Unchecked
+        else:  # Qt.Unchecked
             self.ping.stop_ping()
 
     def validate_ip(self):
-        """Validate the IP address and enable/disable the button."""
+        """Validate the IP address and system name and enable/disable the button."""
         if self.ip_widget.valid:
             self.button_scan.setEnabled(True)  # Enable button if valid
         else:
             self.button_scan.setEnabled(False)  # Disable button if empty
+
+        if ic(self.ip_widget.valid and self.system_name.valid):
+            self.button_add.setEnabled(True)  # Enable button if valid
+        else:
+            self.button_add.setEnabled(False)  # Disable button if empty
 
     def start_task(self):
         """Starts the worker thread and updates the label with progress."""
@@ -96,7 +116,10 @@ class AddSystemDialog(QDialog):
         self.log = []
         self.log.append(f'Task started at {datetime.datetime.now()}')
 
-        self.worker = PreScaner(self.ip_widget.get_ip(), self.deep_scan_checkbox.isChecked())
+        self.worker = PreScaner(self.ip_widget.get_ip(),
+                                self.deep_scan_checkbox.isChecked(),
+                                max_node_num=self.max_node_num_widget.value(),
+                                )  # max_node_num here
         self.worker.progress.connect(self.update_progress)
         self.worker.cn_node_current.connect(self._update_cn_node_current)
         self.worker.finished.connect(self.task_finished)
@@ -106,9 +129,7 @@ class AddSystemDialog(QDialog):
         self.worker.start()
         # except CommError
 
-
     def handle_communication_error(self, err):
-        """Handles the list of discovered ControlNet paths."""
         self.log.append(f'!!! Communication error: {err}')
         self.label.setText('\r'.join(self.log))
         # Now you can use 'paths' to trigger additional scans
@@ -153,6 +174,7 @@ class AddSystemDialog(QDialog):
 
     def module_found(self, module: dict):
         pprint(module)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

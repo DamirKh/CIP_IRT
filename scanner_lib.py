@@ -269,7 +269,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
     return this_bp_sn, modules_in_bp, this_bp, cn_modules_paths
 
 
-def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update=None):
+def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update=None, max_node_num = 100):
     if current_cn_node_update:  # ---------------------------------------------logging function
         cn_node_updt = current_cn_node_update
     else:  # ---------------------------------------------------------------NO logging function
@@ -279,7 +279,7 @@ def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_upda
     cn_modules_paths = {}
     found_controlnet_nodes = []
     p(f'Scanning ControlNet {cip_path}...')
-    for cnet_node_num in range(10):  # 100 for production
+    for cnet_node_num in range(max_node_num+1):  # 100 for production
         target = f'{cip_path}/{cnet_node_num}'
         cn_node_updt(f'{cnet_node_num:02}')
         # time.sleep(0.02)
