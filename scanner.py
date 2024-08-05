@@ -103,7 +103,7 @@ class Scaner(QRunnable):
         self.signals = ScannerSignals()
         utc_time = datetime.now(timezone.utc).strftime(TIME_FORMAT)
         fname = get_user_data_path() / 'prev' / f'{self.system_name}.{utc_time}.data'
-        self.saver = global_data_obj(fname=fname)
+        self.saver = global_data_obj(fname=fname)  # check it
         # self.finish_callback = finish_callback
         # self.scanned = set()
 
@@ -160,16 +160,16 @@ class Scaner(QRunnable):
                                                 module_found=self._module_found
                                                 )
         except CommError as e:
-            self.signals.communication_error.emit(str(e))
-            self.saver.flush()
-            self.saver.restore_data()
+            self.signals.communication_error.emit(self.system_name)
+            # self.saver.flush()
+            # self.saver.restore_data()
             pass
         else:
             fname = get_user_data_path() / f'{self.system_name}.data'
             self.saver.store_data()
             self.saver.store_data(filename=fname)
             ic(f"Data saved: {get_user_data_path() / f'{self.system_name}.data'}")
+            self.signals.finished.emit(self.system_name)
         finally:
             ic(f"Scanner complete {self.system_name}")
             # self.finish_callback(self.system_name)
-            self.signals.finished.emit(self.system_name)

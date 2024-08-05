@@ -261,12 +261,18 @@ class MainWindow(QWidget):
                         system_name=current_system.text(),
                         entry_point=self.entry_point[i].text(),
                         finish_callback=self.system_finished,
+                        deep_scan=True,
                     )
                     running_scanner.signals.finished.connect(self.system_finished)
+                    running_scanner.signals.progress.connect(self.update_progress)
+                    running_scanner.signals.module_found.connect(self.module_found)
+                    running_scanner.signals.cn_node_current.connect(self.cn_node_current)
+                    running_scanner.signals.communication_error.connect(self.communication_error)
                     self.threadpool.start(running_scanner)
                 except SystemExit:
                     print(f"Error scanning {current_system.text()}")
             return
+
 
     def system_finished(self, system_name: str):
         print(f'Scan finished: {system_name}')
@@ -275,6 +281,23 @@ class MainWindow(QWidget):
             if current_system.text() == system_name:
                 self.last_scan_time[i].setText(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 break
+
+    def communication_error(self, system_name: str):
+        print(f'Communication error: {system_name}')
+        # Update the last scan time
+        for i, current_system in enumerate(self.system_name):
+            if current_system.text() == system_name:
+                self.last_scan_time[i].setText(f'Error {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+                break
+
+    def update_progress(self, message: str):
+        print(message)
+
+    def module_found(self, module: dict):
+        print(f"Module found: {module}")
+
+    def cn_node_current(self, node: str):
+        print(f"Current ControlNet node: {node}")
 
     def load_settings(self):
         """Loads settings from the binary file."""
