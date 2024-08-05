@@ -474,7 +474,7 @@ if __name__ == '__main__':
         prev_data_path.mkdir(parents=True, exist_ok=True)
 
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon(os.path.join(asset_dir, 'tag.ico')))
+    app.setWindowIcon(QIcon(os.path.join(asset_dir, 'irt.ico')))
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
