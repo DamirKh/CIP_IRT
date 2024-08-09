@@ -173,7 +173,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
 
     for slot in range(this_bp.get('size', 14)):
         _cn_here = False
-        if cip_path == '11.100.40.1/bp/3/cnet/1' and slot == 3:
+        if cip_path == '11.110.54.1' and slot == 1:  #
             pass  # trap for debug. edit string above and set breakpoint here
         try:
             _long_path = this_module_path = f'{cip_path}/bp/{slot}'
@@ -190,7 +190,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
                     driver: CIPDriver = CIPDriver(this_module_path)
                     driver.open()
 
-                    this_module_response = driver.generic_message(**cip_request.who)
+                    this_module_response = driver.generic_message(**cip_request.who_connected)
                 except ResponseError:
                     pass  # no way
                 except CommError:
