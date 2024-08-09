@@ -159,6 +159,12 @@ class Scaner(QRunnable):
                                                 p=self._progress_update,
                                                 module_found=self._module_found
                                                 )
+            if not len(cn_path):
+                self.signals.progress.emit('***************** No ControlNet modules in this BackPlane')
+                ep = scan_bp(cip_path=self.entry_point, entry_point=True, format='',
+                         module_found=self._module_found
+                         )
+
         except CommError as e:
             self.signals.communication_error.emit(self.system_name)
             # self.saver.flush()

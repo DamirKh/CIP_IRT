@@ -8,6 +8,7 @@ from pycomm3.exceptions import ResponseError, RequestError, CommError
 
 from pycomm3.logger import configure_default_logger
 
+import tool
 from global_data import global_data, new_blank_module
 
 from shassy import MyModuleIdentityObject
@@ -200,6 +201,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
                 this_module = MyModuleIdentityObject.decode(this_module_response.value)
                 this_module["path"] = _long_path
                 this_module["slot"] = slot
+                this_module["product_name"] = tool.remove_control_chars(this_module["product_name"])
                 if _cn_here:
                     this_module['cn_node'] = _cn_here
                 if this_module['product_code'] in controlnet_module:
