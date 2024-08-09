@@ -11,6 +11,16 @@ who = {
     "name": 'Who'
 }
 
+who_connected = {
+    "service": Services.get_attributes_all,
+    "class_code": 0x1,
+    "instance": 0x1,
+    "connected": True,
+    "unconnected_send": False,
+    "route_path": True,
+    "name": 'Who'
+}
+
 bp_info = {
     "service": Services.get_attributes_all,
     "class_code": 0x66,
