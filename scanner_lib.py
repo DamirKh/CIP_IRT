@@ -2,7 +2,6 @@ from pprint import pprint
 
 from icecream import ic
 
-
 from pycomm3 import CIPDriver, Tag
 from pycomm3.exceptions import ResponseError, RequestError, CommError
 
@@ -17,6 +16,7 @@ import serial_generator
 
 bp_all = set([])
 full_map = {}
+modules_all = set([])
 
 controlnet_module = 22, 7
 flex_adapter = 37
@@ -24,14 +24,14 @@ ethernet_module = 166
 plc_module = 93, 94
 serial_unknown = serial_generator.SerialGenerator()
 
-long_path_error_values = b'\x18\x03\x01\x00',  b'\x18\x03\x02\x00'  # empiric way
+long_path_error_values = b'\x18\x03\x01\x00', b'\x18\x03\x02\x00'  # empiric way
 
 
 class AlreadyScanned(Exception):
     """Custom exception to indicate a backplane has already been scanned."""
 
-    def __init__(self, bp_serial):
-        super().__init__(f"Backplane with serial {bp_serial} has already been scanned.")
+    def __init__(self, serial):
+        super().__init__(f"Module with serial {serial} has already been scanned.")
 
 
 class BackplaneSerialNumberMissmatch(Exception):
@@ -42,7 +42,7 @@ class BackplaneSerialNumberMissmatch(Exception):
 
 
 def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
-            module_found = pprint):
+            module_found=pprint):
     """
     Scans the Backplane by specified CIP path for modules and returns a dictionary
     mapping their serial numbers to their corresponding paths and whether they've been scanned.
@@ -64,7 +64,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
     this_bp = {}
 
     modules_in_bp = {}
-    modules_all = set([])
+    global modules_all
     cn_modules_paths = {}
     this_flex_response = False
 
@@ -133,7 +133,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
                         # }
 
                 if this_module['product_code'] in (flex_adapter,):
-                    this_flex_response = temporary_driver.generic_message(**cip_request.flex_info )
+                    this_flex_response = temporary_driver.generic_message(**cip_request.flex_info)
                     p(f'{format}Flex adapter at {cip_path}')
                     pprint(this_flex_response.value)
                     # b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules
@@ -142,6 +142,8 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
         except CommError:
             print()
             raise CommError(f"Can't communicate to {cip_path}!")
+        except AlreadyScanned:
+            pass
 
     if this_flex_response:  # TODO
         global_data.cn_flex[this_module['serial']] = {
@@ -172,8 +174,8 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
     bp_known_size = True if bp_as_module["size"] else False
 
     for slot in range(this_bp.get('size', 14)):
-        _cn_here = False
-        if cip_path == '11.110.54.1' and slot == 1:  #
+        _communication_module_here = False
+        if cip_path == '192.168.0.124/bp/2/cnet/3': # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3'
             pass  # trap for debug. edit string above and set breakpoint here
         try:
             _long_path = this_module_path = f'{cip_path}/bp/{slot}'
@@ -182,8 +184,8 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
 
             this_module_response = driver.generic_message(**cip_request.who)
             if this_module_response.error and this_module_response.value in long_path_error_values:
-                # some CN modules does not respond to message via long path with bp
-                _cn_here = cip_path.split('/')[-1]
+                # some communication modules does not respond to message via long path with bp
+                _communication_module_here = cip_path.split('/')[-1]
                 driver.close()
                 try:
                     this_module_path: str = f'{cip_path}'  # strip /bp/{slot} part
@@ -199,11 +201,17 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
 
             if this_module_response:  # this block executed for every real module ######################################
                 this_module = MyModuleIdentityObject.decode(this_module_response.value)
+
+                # if this_module["serial"] in modules_all:  # Check for communication loop
+                #     raise AlreadyScanned(this_module["serial"])
+                # else:
+                #     modules_all.add(this_module["serial"])
+
                 this_module["path"] = _long_path
                 this_module["slot"] = slot
                 this_module["product_name"] = tool.remove_control_chars(this_module["product_name"])
-                if _cn_here:
-                    this_module['cn_node'] = _cn_here
+                if _communication_module_here:
+                    this_module['cn_node'] = _communication_module_here
                 if this_module['product_code'] in controlnet_module:
                     this_module['cn_node'] = cip_path.split('/')[-1]
                 p(f"{format}Slot {slot:02} = [{this_module['serial']}] {this_module['product_name']}")
@@ -263,6 +271,8 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
             p(f'{format} !!! Module in slot {slot} may be broken')
             modules_in_bp[slot] = None
             continue
+        except AlreadyScanned:
+            break
         # global_data.module[this_module['serial']] = this_module
         driver.close()
 
@@ -271,7 +281,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
     return this_bp_sn, modules_in_bp, this_bp, cn_modules_paths
 
 
-def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update=None, max_node_num = 100):
+def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update=None, max_node_num=100):
     if current_cn_node_update:  # ---------------------------------------------logging function
         cn_node_updt = current_cn_node_update
     else:  # ---------------------------------------------------------------NO logging function
@@ -281,7 +291,7 @@ def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_upda
     cn_modules_paths = {}
     found_controlnet_nodes = []
     p(f'Scanning ControlNet {cip_path}...')
-    for cnet_node_num in range(max_node_num+1):  # 100 for production
+    for cnet_node_num in range(max_node_num + 1):  # 100 for production
         target = f'{cip_path}/{cnet_node_num}'
         cn_node_updt(f'{cnet_node_num:02}')
         # time.sleep(0.02)
