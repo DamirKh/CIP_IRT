@@ -291,8 +291,13 @@ class MainWindow(QWidget):
                 self.last_scan_time[i].setText(f'Error {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
                 break
 
-    def update_progress(self, message: str):
+    def update_progress(self, system_name: str, message: str):
         print(message)
+        # Update progress
+        for i, current_system in enumerate(self.system_name):
+            if current_system.text() == system_name:
+                self.ping_status[i].progress_forward()
+                break
 
     def module_found(self, module: dict):
         print(f"Module found: {module}")

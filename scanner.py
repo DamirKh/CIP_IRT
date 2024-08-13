@@ -82,7 +82,7 @@ class ScannerSignals(QObject):
 
     '''
     finished = pyqtSignal(str)
-    progress = pyqtSignal(str)
+    progress = pyqtSignal(str, str)
     cn_node_current = pyqtSignal(str)
     communication_error = pyqtSignal(str)  # Signal if can't communicate
     module_found = pyqtSignal(dict)  # signal when found any module
@@ -109,10 +109,10 @@ class Scaner(QRunnable):
 
     def _progress_update(self, *args, **kwargs):
         log_message = ' '.join(str(a) for a in args)
-        self.signals.progress.emit(log_message)
+        self.signals.progress.emit(self.system_name, log_message)
 
         for key, value in kwargs.items():
-            self.signals.progress.emit(f'{str(key)} = {str(value)}')
+            self.signals.progress.emit(self.system_name, f'{str(key)} = {str(value)}')
         pass
 
     def _current_cn_node_update(self, node: str):
@@ -146,7 +146,7 @@ class Scaner(QRunnable):
             bp_sn, modules, bp, cn_path = ep
 
             if self.deep_scan and ic(len(cn_path)):
-                self.signals.progress.emit('***************** Deep scan goes next...')
+                self.signals.progress.emit(self.system_name, '***************** Deep scan goes next...')
                 for cn_serial, cip_path in cn_path.items():
                     controlnet_nodes, cn_modules_paths = scan_cn(cip_path,
                                                                  p=self._progress_update,

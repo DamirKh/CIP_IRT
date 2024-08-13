@@ -1,5 +1,6 @@
 import itertools
 
+
 class SerialGenerator:
     def __init__(self, start_value="FFFFFF00"):
         self.start_value = start_value
@@ -17,18 +18,32 @@ class SerialGenerator:
     def next_serial(self):
         return self.get_next_serial()
 
+
+class StyleSheetGenerator:
+    def __init__(self):
+        self._range = range(0, 205, 50)
+        self.color_iterator = itertools.cycle(self._range)
+
+    def __str__(self):
+        value = f"{self.get_next()}"
+        return value
+
+    def get_next(self):
+        return next(self.color_iterator)
+
+
 if __name__ == '__main__':
     # Example usage:
     generator = SerialGenerator(start_value="FFFFF000")
     this_bp = {'some_key': 'some_value'}
 
-    this_bp_sn = this_bp.get('serial', generator.get_next_serial()) 
+    this_bp_sn = this_bp.get('serial', generator.get_next_serial())
     print(this_bp_sn)  # Output: FFFFFF00
 
-    this_bp_sn = this_bp.get('serial', generator.get_next_serial()) 
+    this_bp_sn = this_bp.get('serial', generator.get_next_serial())
     print(this_bp_sn)  # Output: FFFFFF01
 
-    this_bp_sn = this_bp.get('serial', generator.get_next_serial()) 
+    this_bp_sn = this_bp.get('serial', generator.get_next_serial())
     print(this_bp_sn)  # Output: FFFFFF02
 
     print(generator)
