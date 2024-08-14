@@ -4,7 +4,7 @@ from pprint import pprint
 
 from icecream import ic
 from PyQt6.QtCore import QThread, pyqtSignal, QRunnable, pyqtSlot, QObject
-from scanner_lib import scan_cn, scan_bp, CommError
+from scanner_lib import scan_cn, scan_bp, CommError, get_module_sn, get_backplane_sn
 
 from global_data import global_data_obj
 from saver import get_user_data_path
@@ -104,6 +104,8 @@ class Scaner(QRunnable):
         utc_time = datetime.now(timezone.utc).strftime(TIME_FORMAT)
         fname = get_user_data_path() / 'prev' / f'{self.system_name}.{utc_time}.data'
         self.saver = global_data_obj(fname=fname)  # check it
+        self.controlnet_modules_serial = set([])
+        self.backplane_serial = set([])
         # self.finish_callback = finish_callback
         # self.scanned = set()
 
@@ -155,12 +157,22 @@ class Scaner(QRunnable):
                     self.saver.cn_nodes.append(controlnet_nodes)
                     if len(controlnet_nodes) > 1:  # more than one node in CN network found
                         for bp, p in cn_modules_paths.items():
+                            controlnet_serial = get_module_sn(p)
+                            backplane_serial = get_backplane_sn(p)
+                            if controlnet_serial and controlnet_serial in self.controlnet_modules_serial:
+                                continue
+                            if backplane_serial and backplane_serial in self.backplane_serial:
+                                continue
+                            if controlnet_serial:
+                                self.controlnet_modules_serial.add(controlnet_serial)
+                            if backplane_serial:
+                                self.backplane_serial.add(backplane_serial)
                             level1_bp = scan_bp(cip_path=p, entry_point=False, format='   ',
                                                 p=self._progress_update,
                                                 module_found=self._module_found
                                                 )
             if not len(cn_path):
-                self.signals.progress.emit('***************** No ControlNet modules in this BackPlane')
+                self.signals.progress.emit(self.system_name, '***************** No ControlNet modules in this BackPlane')
                 ep = scan_bp(cip_path=self.entry_point, entry_point=True, format='',
                          module_found=self._module_found
                          )

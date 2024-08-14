@@ -33,12 +33,44 @@ class AlreadyScanned(Exception):
     def __init__(self, serial):
         super().__init__(f"Module with serial {serial} has already been scanned.")
 
+class ModuleUnavailable(Exception):
+    """Custom exception to indicate module unavailable."""
+
+    def __init__(self, path):
+        super().__init__(f"Module {path} unavailable")
+
 
 class BackplaneSerialNumberMissmatch(Exception):
     """an exception occurs when the backplane serial number does not match the current serial number"""
 
     def __init__(self, bp_serial_current, bp_serial_prev):
         super().__init__(f"Backplane SN {bp_serial_current} != {bp_serial_prev}")
+
+
+def get_module_sn(cip_path):
+    driver: CIPDriver = CIPDriver(cip_path)
+    driver.open()
+    module_response = driver.generic_message(**cip_request.who)
+    if module_response.error:  # and module_response.value in long_path_error_values:
+        module_response = driver.generic_message(**cip_request.who_connected)
+        if module_response.error:
+            # raise ModuleUnavailable(cip_path)
+            return None
+    module = MyModuleIdentityObject.decode(module_response.value)
+    return module["serial"]
+
+def get_backplane_sn(cip_path):
+    driver: CIPDriver = CIPDriver(cip_path)
+    driver.open()
+    bp_response = driver.generic_message(**cip_request.bp_info)
+    if bp_response.error:  # let's try another way
+        bp_response = driver.generic_message(**cip_request.bp_info_connected)
+        if bp_response.error:
+            # raise ModuleUnavailable(cip_path)
+            return None
+    bp = bp_response.value
+    serial = f'{bp['serial_no']:0>8x}'
+    return serial
 
 
 def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,

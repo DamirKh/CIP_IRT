@@ -32,6 +32,17 @@ bp_info = {
     "route_path": True
 }
 
+bp_info_connected = {
+    "service": Services.get_attributes_all,
+    "class_code": 0x66,
+    "instance": 0x1,
+    "attribute": 0x0,
+    "data_type": shassy_ident,
+    "connected": True,
+    "unconnected_send": False,
+    "route_path": True
+}
+
 flex_info = {
     "service": Services.get_attributes_all,
     "class_code": 0x78,
