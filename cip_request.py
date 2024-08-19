@@ -1,5 +1,5 @@
 from pycomm3 import Services, ClassCode, STRING
-from shassy import shassy_ident
+from shassy import shassy_ident, My_CN_Node_number
 
 who = {
     "service": Services.get_attributes_all,
@@ -64,3 +64,16 @@ plc_name = {
     "route_path": True,
     "name": "get_plc_name",
 }
+
+cn_address = {
+    "service": Services.get_attribute_single,
+    "class_code": 0x00f0,
+    "instance": 0x1,
+    "attribute": 0x84,
+    "connected": True,
+    "unconnected_send": False,
+    "data_type": My_CN_Node_number,
+    "route_path": True,
+    "name": 'CN_NODE_ADDR'
+}
+

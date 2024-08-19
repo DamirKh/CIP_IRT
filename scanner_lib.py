@@ -224,7 +224,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
 
     for slot in range(this_bp.get('size', 14)):
         _communication_module_here = False
-        if cip_path == '192.168.0.124/bp/2/cnet/3': # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3'
+        if cip_path == '192.168.0.124/bp/2/cnet/1/bp/9': # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
             pass  # trap for debug. edit string above and set breakpoint here
         try:
             _long_path = this_module_path = f'{cip_path}/bp/{slot}'
@@ -263,7 +263,12 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
                 if _communication_module_here:
                     this_module['cn_node'] = _communication_module_here
                 if this_module['product_code'] in controlnet_module:
-                    this_module['cn_node'] = cip_path.split('/')[-1]
+                    this_module_node_address_response = driver.generic_message(**cip_request.cn_address)
+                    if this_module_node_address_response:
+                        this_module_node_address = this_module_node_address_response.value['cn_node_number1']
+                        this_module['cn_node'] = this_module_node_address
+                    else:
+                        this_module['cn_node'] = cip_path.split('/')[-1]
                 p(f"{format}Slot {slot:02} = [{this_module['serial']}] {this_module['product_name']}")
                 modules_in_bp[slot] = ic(this_module['serial'])
                 if module_found:

@@ -94,6 +94,13 @@ My_Module_Ident = Struct(
     SHORT_STRING("product_name"),
 )
 
+My_CN_Node_number = Struct(
+    USINT('cn_node_number1'),
+    USINT('cn_node_number2'),
+    USINT('UNKNOWN1'),
+    USINT('UNKNOWN2'),
+)
+
 
 class MyModuleIdentityObject(
     Struct(

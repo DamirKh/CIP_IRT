@@ -143,9 +143,13 @@ class Scaner(QRunnable):
         self.saver.flush()
         try:
             ep = scan_bp(cip_path=self.entry_point, entry_point=True, format='',
-                         module_found=self._module_found_print
+                         p=self._progress_update,
+                         module_found=self._module_found
                          )
             bp_sn, modules, bp, cn_path = ep
+            self.backplane_serial.add(bp_sn)
+            for cn_serial in cn_path.keys():
+                self.controlnet_modules_serial.add(cn_serial)
 
             if self.deep_scan and ic(len(cn_path)):
                 self.signals.progress.emit(self.system_name, '***************** Deep scan goes next...')
