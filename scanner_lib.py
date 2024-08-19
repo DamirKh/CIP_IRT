@@ -73,6 +73,17 @@ def get_backplane_sn(cip_path):
     return serial
 
 
+def path_left_strip(path: str) -> str:
+    """
+    10/20/30  --> 20/30
+    """
+    _path = path.split('/')[1:]
+    if not len(_path):
+        return '/'
+    else:
+        return f"/{'/'.join(_path)}"
+
+
 def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
             module_found=pprint):
     """
@@ -200,7 +211,13 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
     bp_as_module["minor"] = this_bp.get('minor_rev', 0)
     bp_as_module["product_name"] = "Backplane"
     bp_as_module["product_type"] = f"{this_bp.get('size', "UNKNOWN")} slots"
-    bp_as_module["path"] = f"{cip_path}/bp"
+    # bp_as_module["path"] = f"{cip_path}/bp"
+    _path = path_left_strip(cip_path)
+    if _path[-1] == '/':
+        bp_as_module["path"] = f"{path_left_strip(cip_path)}bp"
+    else:
+        bp_as_module["path"] = f"{path_left_strip(cip_path)}/bp"
+
 
     module_found(bp_as_module)
     bp_known_size = True if bp_as_module["size"] else False
@@ -239,7 +256,8 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
                 # else:
                 #     modules_all.add(this_module["serial"])
 
-                this_module["path"] = _long_path
+                # _path = _long_path.split('/')[1:]
+                this_module["path"] = path_left_strip(_long_path)
                 this_module["slot"] = slot
                 this_module["product_name"] = tool.remove_control_chars(this_module["product_name"])
                 if _communication_module_here:
@@ -259,7 +277,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
                     empty_slot_as_module["slot"] = slot
                     empty_slot_as_module["product_name"] = "Empty slot"
                     # empty_slot_as_module["serial"] = f'{this_bp_sn}-{slot:0>2}'
-                    empty_slot_as_module["path"] = _long_path
+                    empty_slot_as_module["path"] = path_left_strip(_long_path)
 
                     module_found(empty_slot_as_module)
                 else:
