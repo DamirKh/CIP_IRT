@@ -224,7 +224,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
 
     for slot in range(this_bp.get('size', 14)):
         _communication_module_here = False
-        if cip_path == '192.168.0.124/bp/2/cnet/1/bp/9': # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
+        if cip_path == '192.168.0.124/bp/2/cnet/8/': # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
             pass  # trap for debug. edit string above and set breakpoint here
         try:
             _long_path = this_module_path = f'{cip_path}/bp/{slot}'
