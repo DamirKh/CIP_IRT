@@ -84,67 +84,86 @@ def path_left_strip(path: str) -> str:
         return f"/{'/'.join(_path)}"
 
 
-def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
-            module_found=pprint):
-    """
-    Scans the Backplane by specified CIP path for modules and returns a dictionary
-    mapping their serial numbers to their corresponding paths and whether they've been scanned.
-
-    update datas in global_data module
-
-    Args:
-        :param format (str): this string will be added before every log message
-        :param cip_path (str): The CIP path to scan.
-        :param entry_point (bool): True if bp is entry point
-        :param p (func): callback for progress update
-
-
-    Returns:
-        dict: A dictionary where keys are serial numbers of modules,
-              and values are tuples containing the module's path and a boolean indicating
-              whether it's been scanned.
-    """
-    this_bp = {}
+def scan_bp(cip_path, module_found=pprint):
 
     modules_in_bp = {}
-    global modules_all
     cn_modules_paths = {}
     this_flex_response = False
 
-    # ------------------------------------------------------------------------------------- access to bp via eth
-    if entry_point:
-        p(f'Scanning entry point {cip_path}')
-        backplane_size = 13
-        current_slot = -1
-        while current_slot <= backplane_size:
-            current_slot += 1
-            try:
-                with CIPDriver(f'{cip_path}/bp/{current_slot}') as temporary_driver:
-                    # p(temporary_driver)
+    with CIPDriver(cip_path) as entry_point_module_driver:
+        # p(entry_point_module_driver)
 
-                    entry_point_module = temporary_driver.generic_message(**cip_request.who)
-                    if entry_point_module:
-                        epm = MyModuleIdentityObject.decode(entry_point_module.value)
-                    else:
-                        continue
-                    if not this_bp:
-                        # if epm['product_code'] in (ethernet_module, controlnet_module, plc_module) and not this_bp:
-                        # no bp info yet
-                        # https://www.plctalk.net/threads/rockwell-plc-chassis-serial-number-rs-logix.86426/
-                        this_bp_response = temporary_driver.generic_message(**cip_request.bp_info)
-                        if this_bp_response.error:
-                            # BackPlane response not supported
-                            p(f"Can't get backplane info via {cip_path}/bp/{current_slot}")
-                            # this_bp['serial'] = str(serial_unknown)
-                            pass
-                        else:
-                            this_bp = this_bp_response.value
-                            this_bp['serial'] = f'{this_bp['serial_no']:0>8x}'
-                            backplane_size = this_bp.get('size', 20)
-                            p(f'BackPlane:')
-                            p(this_bp)
-                    # store module info
-                    # modules_in_bp[current_slot] = ic(epm['serial'])
+        entry_point_module = entry_point_module_driver.generic_message(**cip_request.who)
+        epm = MyModuleIdentityObject.decode(entry_point_module.value)
+
+        this_bp_response = entry_point_module_driver.generic_message(**cip_request.bp_info)
+        bp_as_module = new_blank_module()
+
+        if this_bp_response.error:
+            # BackPlane response not supported
+            print(f"Can't get backplane info via {cip_path}: ({epm['product_type']} {epm['product_name']})")
+            # this_bp['serial'] = str(serial_unknown)
+            pass
+        else:
+            this_bp = this_bp_response.value
+
+            bp_as_module["serial"] = f'{this_bp['serial_no']:0>8x}'
+            bp_as_module["size"] = this_bp.get('size', None)
+            bp_as_module["rev"] = f"{this_bp.get('major_rev', 0)}.{this_bp.get('minor_rev', 0)}"
+            bp_as_module["major"] = this_bp.get('major_rev', 0)
+            bp_as_module["minor"] = this_bp.get('minor_rev', 0)
+            bp_as_module["product_name"] = "Backplane"
+            bp_as_module["product_type"] = f"{this_bp.get('size', "UNKNOWN")} slots"
+            # bp_as_module["path"] = f"{cip_path}/bp"
+            _path = path_left_strip(cip_path)
+            if _path[-1] == '/':
+                bp_as_module["path"] = f"{path_left_strip(cip_path)}bp"
+            else:
+                bp_as_module["path"] = f"{path_left_strip(cip_path)}/bp"
+            module_found(bp_as_module)
+        bp_known_size = True if bp_as_module["size"] else False
+
+        print(f'BackPlane: {this_bp}')
+
+# ########
+
+    if not bp_known_size:
+        backplane_size = 100
+    else:
+        backplane_size = bp_as_module["size"]
+    current_slot = -1
+    while current_slot <= backplane_size:
+        current_slot += 1
+        _path = f'{path_left_strip(cip_path)}/bp/{current_slot}'
+        if current_slot == epm['mod_addr']:
+            module_found(epm)
+        try:
+                # with CIPDriver(f'{cip_path}/bp/{current_slot}') as entry_point_module_driver:
+                #     # p(entry_point_module_driver)
+                #
+                #     entry_point_module = entry_point_module_driver.generic_message(**cip_request.who)
+                #     if entry_point_module:
+                #         epm = MyModuleIdentityObject.decode(entry_point_module.value)
+                #     else:
+                #         continue
+                #     if not this_bp:
+                #         # if epm['product_code'] in (ethernet_module, controlnet_module, plc_module) and not this_bp:
+                #         # no bp info yet
+                #         # https://www.plctalk.net/threads/rockwell-plc-chassis-serial-number-rs-logix.86426/
+                #         this_bp_response = entry_point_module_driver.generic_message(**cip_request.bp_info)
+                #         if this_bp_response.error:
+                #             # BackPlane response not supported
+                #             p(f"Can't get backplane info via {cip_path}/bp/{current_slot}")
+                #             # this_bp['serial'] = str(serial_unknown)
+                #             pass
+                #         else:
+                #             this_bp = this_bp_response.value
+                #             this_bp['serial'] = f'{this_bp['serial_no']:0>8x}'
+                #             backplane_size = this_bp.get('size', 20)
+                #             p(f'BackPlane:')
+                #             p(this_bp)
+                #     # store module info
+                #     # modules_in_bp[current_slot] = ic(epm['serial'])
 
             except CommError:
                 raise CommError(f"Can't communicate to {cip_path}!")
@@ -152,9 +171,9 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
     else:
         p(f'Scanning BackPlane at {cip_path}')
         try:
-            with CIPDriver(f'{cip_path}') as temporary_driver:
-                # pprint(temporary_driver)
-                this_module_response: Tag = temporary_driver.generic_message(**cip_request.who)
+            with CIPDriver(f'{cip_path}') as entry_point_module_driver:
+                # pprint(entry_point_module_driver)
+                this_module_response: Tag = entry_point_module_driver.generic_message(**cip_request.who)
                 if this_module_response:
                     this_module = MyModuleIdentityObject.decode(this_module_response.value)
                 else:
@@ -162,7 +181,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
 
                 # here we've got controlnet module by full cip path via controlnet
                 if this_module['product_code'] in controlnet_module:
-                    this_bp_response = temporary_driver.generic_message(**cip_request.bp_info)
+                    this_bp_response = entry_point_module_driver.generic_message(**cip_request.bp_info)
                     if this_bp_response.error:
                         # BackPlane response not supported. May be an old CN module o BP
                         # need to generate some ID for  backplane
@@ -176,7 +195,7 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
                         # }
 
                 if this_module['product_code'] in (flex_adapter,):
-                    this_flex_response = temporary_driver.generic_message(**cip_request.flex_info)
+                    this_flex_response = entry_point_module_driver.generic_message(**cip_request.flex_info)
                     p(f'{format}Flex adapter at {cip_path}')
                     pprint(this_flex_response.value)
                     # b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules
@@ -203,24 +222,24 @@ def scan_bp(cip_path, entry_point: bool = False, format: str = '', p=pprint,
     p('Backpane')
     p(this_bp)
 
-    bp_as_module = new_blank_module()
-    bp_as_module["serial"] = this_bp_sn
-    bp_as_module["size"] = this_bp.get('size', None)
-    bp_as_module["rev"] = f"{this_bp.get('major_rev', 0)}.{this_bp.get('minor_rev', 0)}"
-    bp_as_module["major"] = this_bp.get('major_rev', 0)
-    bp_as_module["minor"] = this_bp.get('minor_rev', 0)
-    bp_as_module["product_name"] = "Backplane"
-    bp_as_module["product_type"] = f"{this_bp.get('size', "UNKNOWN")} slots"
-    # bp_as_module["path"] = f"{cip_path}/bp"
-    _path = path_left_strip(cip_path)
-    if _path[-1] == '/':
-        bp_as_module["path"] = f"{path_left_strip(cip_path)}bp"
-    else:
-        bp_as_module["path"] = f"{path_left_strip(cip_path)}/bp"
-
-
-    module_found(bp_as_module)
-    bp_known_size = True if bp_as_module["size"] else False
+    # bp_as_module = new_blank_module()
+    # bp_as_module["serial"] = this_bp_sn
+    # bp_as_module["size"] = this_bp.get('size', None)
+    # bp_as_module["rev"] = f"{this_bp.get('major_rev', 0)}.{this_bp.get('minor_rev', 0)}"
+    # bp_as_module["major"] = this_bp.get('major_rev', 0)
+    # bp_as_module["minor"] = this_bp.get('minor_rev', 0)
+    # bp_as_module["product_name"] = "Backplane"
+    # bp_as_module["product_type"] = f"{this_bp.get('size', "UNKNOWN")} slots"
+    # # bp_as_module["path"] = f"{cip_path}/bp"
+    # _path = path_left_strip(cip_path)
+    # if _path[-1] == '/':
+    #     bp_as_module["path"] = f"{path_left_strip(cip_path)}bp"
+    # else:
+    #     bp_as_module["path"] = f"{path_left_strip(cip_path)}/bp"
+    #
+    #
+    # module_found(bp_as_module)
+    # bp_known_size = True if bp_as_module["size"] else False
 
     for slot in range(this_bp.get('size', 14)):
         _communication_module_here = False
