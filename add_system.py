@@ -116,8 +116,8 @@ class AddSystemDialog(QDialog):
         self.log = []
         self.log.append(f'Task started at {datetime.datetime.now()}')
 
-        self.worker = PreScaner(self.ip_widget.get_ip(),
-                                self.deep_scan_checkbox.isChecked(),
+        self.worker = PreScaner(entry_point=self.ip_widget.get_ip(),
+                                deep_scan=self.deep_scan_checkbox.isChecked(),
                                 max_node_num=self.max_node_num_widget.value(),
                                 )  # max_node_num here
         self.worker.progress.connect(self.update_progress)
@@ -174,6 +174,16 @@ class AddSystemDialog(QDialog):
 
     def module_found(self, module: dict):
         pprint(module)
+
+
+class EditSystemDialog(AddSystemDialog):
+    def __init__(self, system_name, ip_addr, parent=None,  deep_scan=None):
+        super().__init__(parent=parent)
+        self.system_name._input.setText(system_name)
+        self.system_name.setEnabled(False)
+
+        self.ip_widget.ip_input.setText(ip_addr)
+        self.ip_widget.validate_ip()
 
 
 if __name__ == '__main__':
