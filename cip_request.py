@@ -1,5 +1,5 @@
 from pycomm3 import Services, ClassCode, STRING
-from shassy import shassy_ident
+from shassy import shassy_ident, My_CN_Node_number
 
 who = {
     "service": Services.get_attributes_all,
@@ -32,6 +32,17 @@ bp_info = {
     "route_path": True
 }
 
+bp_info_connected = {
+    "service": Services.get_attributes_all,
+    "class_code": 0x66,
+    "instance": 0x1,
+    "attribute": 0x0,
+    "data_type": shassy_ident,
+    "connected": True,
+    "unconnected_send": False,
+    "route_path": True
+}
+
 flex_info = {
     "service": Services.get_attributes_all,
     "class_code": 0x78,
@@ -53,3 +64,16 @@ plc_name = {
     "route_path": True,
     "name": "get_plc_name",
 }
+
+cn_address = {
+    "service": Services.get_attribute_single,
+    "class_code": 0x00f0,
+    "instance": 0x1,
+    "attribute": 0x84,
+    "connected": True,
+    "unconnected_send": False,
+    "data_type": My_CN_Node_number,
+    "route_path": True,
+    "name": 'CN_NODE_ADDR'
+}
+

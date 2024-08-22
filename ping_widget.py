@@ -12,11 +12,14 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtCore import QTimer, QSize
 from host_ping import ping
 
+from serial_generator import StyleSheetGenerator
 
 class PingWidget(QWidget):
     def __init__(self, q=10, size=20):
         super().__init__()
         self._ip_address = '127.0.0.1'
+
+        self.rolling_color = StyleSheetGenerator()
 
         # Create q square labels
         self._results = []
@@ -45,12 +48,14 @@ class PingWidget(QWidget):
         self.timer = None
         self.ping_results = None
         self.current_ping_index = 0
+        self._results = [None] * len(self.square_labels)
+
 
         # self.start_ping()
 
     def start_ping(self, ip_address: str):
         self._ip_address = ip_address
-        self._results = [None] * len(self.square_labels)
+        # self._results = [None] * len(self.square_labels)
 
         # Start pinging
         self.ping_thread = PingThread(self._ip_address)
@@ -82,11 +87,15 @@ class PingWidget(QWidget):
         self._results.append(success)
         for i, result in enumerate(self._results):
             if result is True:
-                self.square_labels[i].setStyleSheet("background-color: green;")
+                self.square_labels[i].setStyleSheet("background-color: green;")  # background: rgba(100, 100, 100, 150);
             if result is False:
                 self.square_labels[i].setStyleSheet("background-color: red;")
             if result is None:
                 self.square_labels[i].setStyleSheet("background-color: gray;")
+
+    def progress_forward(self, *arg):
+        for i in range(len(self.square_labels)):
+            self.square_labels[i].setStyleSheet(f"background-color: rgba(100, 100, {str(self.rolling_color)}, 255);")  # background: rgba(100, 100, 100, 150);
 
 
 class PingThread(QThread):

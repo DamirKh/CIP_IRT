@@ -75,7 +75,7 @@ shassy_ident = Struct(
     USINT('tx_bus_timeout_ctr'),
     USINT('tx_retry_limit'),
     USINT('bp_status'),
-    UINT('mod_addr'),
+    UINT('mod_addr'),  #  module's slot number in shassy
     USINT('major_rev'),
     USINT('minor_rev'),
     UDINT('serial_no'),
@@ -92,6 +92,13 @@ My_Module_Ident = Struct(
     n_bytes(2, "status"),
     UDINT("serial"),
     SHORT_STRING("product_name"),
+)
+
+My_CN_Node_number = Struct(
+    USINT('cn_node_number1'),
+    USINT('cn_node_number2'),
+    USINT('UNKNOWN1'),
+    USINT('UNKNOWN2'),
 )
 
 

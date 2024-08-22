@@ -1,4 +1,5 @@
 import time
+from pprint import pprint
 
 import pandas as pd
 
@@ -30,7 +31,7 @@ import datetime
 import pickle
 from pathlib import Path
 
-from add_system import AddSystemDialog
+from add_system import AddSystemDialog, EditSystemDialog
 from ping_widget import PingWidget
 
 from version import rev
@@ -195,6 +196,16 @@ class MainWindow(QWidget):
             spacer_hor = QWidget()
             top_layout.addWidget(spacer_hor, stretch=1)
 
+            # Add a button to show "About" dialog
+            self.about_button = QPushButton("About")
+            self.about_button.setIcon(QIcon(os.path.join(asset_dir, "information.png")))
+            self.about_button.setIconSize(QSize(32, 32))
+            self.about_button.setToolTip("About CIP Inventory Resource Tracker")
+            self.about_button.setText("")
+            self.about_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            self.about_button.clicked.connect(self.show_about)
+            top_layout.addWidget(self.about_button, stretch=0)
+
             # Add a scrollable grid
             main_layout.addWidget(self.scroll_area, stretch=1)
 
@@ -291,8 +302,13 @@ class MainWindow(QWidget):
                 self.last_scan_time[i].setText(f'Error {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
                 break
 
-    def update_progress(self, message: str):
+    def update_progress(self, system_name: str, message: str):
         print(message)
+        # Update progress
+        for i, current_system in enumerate(self.system_name):
+            if current_system.text() == system_name:
+                self.ping_status[i].progress_forward()
+                break
 
     def module_found(self, module: dict):
         print(f"Module found: {module}")
@@ -358,9 +374,19 @@ class MainWindow(QWidget):
         # Connect the signal to the slot
         add_system.data_ready.connect(self.handle_data)
 
-        result = ic(add_system.exec())
+        result = add_system.exec()
         if result != 1:  # due to some bug compare to hardcoded value
             print("Rejected!")
+            return
+
+    def edit_row(self, index):
+        edit_system = EditSystemDialog(parent=self,
+                                       system_name=self.system_name[index].text(),
+                                       ip_addr=self.entry_point[index].text())
+        edit_system.data_ready.connect(self.update_data)
+        result = edit_system.exec()
+        if result != 1:  # due to some bug compare to hardcoded value
+            print("Update Rejected!")
             return
 
     def delete_row(self, row_index):
@@ -394,6 +420,10 @@ class MainWindow(QWidget):
         self.grid_widget.updateGeometry()
         self.scroll_area.updateGeometry()
 
+    def update_data(self, *args, **kwargs):
+        pprint(args)
+        pprint(kwargs)
+
     def handle_data(self, system_name, ip_address, deep_scan=None, checked=False, last_scan_time=None):
 
         # Receive data and use it to add a row
@@ -407,8 +437,10 @@ class MainWindow(QWidget):
         self.last_scan_time.append(QLabel("UNKNOWN"))
         if last_scan_time:
             self.last_scan_time[-1].setText(str(last_scan_time))  # Checkit!
-        self.preview_buttons.append(QPushButton(f"-"))
-        self.preview_buttons[-1].setDisabled(True)
+        # Create Edit button
+        self.preview_buttons.append(QPushButton(f"Edit"))
+        self.preview_buttons[-1].clicked.connect(lambda: self.edit_row(row_index - 1))
+        # self.preview_buttons[-1].setDisabled(True)
 
         self.checkboxes.append(QCheckBox())
         self.checkboxes[-1].setChecked(checked)
@@ -436,6 +468,8 @@ class MainWindow(QWidget):
         self.delete_buttons[-1].clicked.connect(lambda: self.delete_row(row_index - 1))
         self.grid_layout.addWidget(self.delete_buttons[-1], row_index, 6)
 
+
+
         # Add spacer
         self.grid_layout.addWidget(self.spacer, row_index + 1, 0)
 
@@ -461,6 +495,15 @@ class MainWindow(QWidget):
             )
         pass
 
+    def show_about(self):
+        """Show the about dialog."""
+        about_dialog = QMessageBox()
+        about_dialog.setWindowTitle("About CIP Inventory Resource Tracker")
+        about_dialog.setIcon(QMessageBox.Icon.Information)
+        about_dialog.setText(f"CIP Inventory Resource Tracker\nVersion {rev}\n\nCreated by Damir Khakimov (1352)\n\nYour data saved here: {get_user_data_path()}")
+        about_dialog.setInformativeText("This application is designed for CPC")
+        about_dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+        about_dialog.exec()
 
 if __name__ == '__main__':
     ic(os.name)
