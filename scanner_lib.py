@@ -1,7 +1,5 @@
 from pprint import pprint
 
-from icecream import ic
-
 from pycomm3 import CIPDriver, Tag
 from pycomm3.exceptions import ResponseError, RequestError, CommError
 
@@ -19,7 +17,7 @@ full_map = {}
 modules_all = set([])
 
 communication_module = 12,
-controlnet_module = 22, 7, 8
+controlnet_module = 22, 7, 8, 14
 flex_adapter = 37,
 ethernet_module = 166, 20, 58
 plc_module = 14,
@@ -73,7 +71,6 @@ def get_backplane_sn(cip_path):
     serial = f'{bp['serial_no']:0>8x}'
     return serial
 
-
 def path_left_strip(path: str) -> str:
     """
     10/20/30  --> 20/30
@@ -83,7 +80,6 @@ def path_left_strip(path: str) -> str:
         return '/'
     else:
         return f"/{'/'.join(_path)}"
-
 
 def scan_bp(cip_path, p=pprint, module_found=pprint):
 
@@ -111,34 +107,44 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
 
         if this_bp_response.error:
             # BackPlane response not supported
-            print(f"Can't get backplane info via {cip_path}: ({epm['product_type']} {epm['product_name']})")
-            _serial_inverted = epm['serial'] ^ 0xFFFFFFFF
+            _serial_inverted = int(epm['serial'], 16)  ^ 0xFFFFFFFF
             this_bp_sn = f"{_serial_inverted:0>8x}"
-            entry_point_module_in_bp_addr = 0
-            pass
+            bp_as_module["serial"] = this_bp_sn
+            bp_as_module["size"] = "UNKNOWN"
+            bp_as_module["rev"] = None
+            bp_as_module["major"] = 0
+            bp_as_module["minor"] = 0
+            bp_as_module["product_name"] = "Virtual Backplane"
+            bp_as_module["product_type"] = "Backplane"
+            entry_point_module_in_bp_addr = -1
+            bp_known_size = False
+            epm['path'] = path_left_strip(cip_path)
+            epm['slot'] = None
+            epm['product_name'] = tool.remove_control_chars(epm['product_name'])
+            module_found(epm)
         else:
             this_bp = this_bp_response.value
 
             bp_as_module["serial"] = f'{this_bp['serial_no']:0>8x}'
+            this_bp_sn = bp_as_module["serial"]
+
             bp_as_module["size"] = this_bp.get('size', None)
             bp_as_module["rev"] = f"{this_bp.get('major_rev', 0)}.{this_bp.get('minor_rev', 0)}"
             bp_as_module["major"] = this_bp.get('major_rev', 0)
             bp_as_module["minor"] = this_bp.get('minor_rev', 0)
-            bp_as_module["product_name"] = "Backplane"
-            bp_as_module["product_type"] = f"{this_bp.get('size', "UNKNOWN")} slots"
-            # bp_as_module["path"] = f"{cip_path}/bp"
-            _path = path_left_strip(cip_path)
-            if _path[-1] == '/':
-                bp_as_module["path"] = f"{path_left_strip(cip_path)}bp"
-            else:
-                bp_as_module["path"] = f"{path_left_strip(cip_path)}/bp"
-            this_bp_sn = bp_as_module["serial"]
+            bp_as_module["product_name"] = f"{this_bp.get('size', "UNKNOWN")} slots Backplane"
+            bp_as_module["product_type"] = "Backplane"
             entry_point_module_in_bp_addr = this_bp['mod_addr']
-            module_found(bp_as_module)
+            bp_known_size = True if this_bp["size"] else False
 
-        bp_known_size = True if bp_as_module["size"] else False
+        _path = path_left_strip(cip_path)
+        if _path[-1] == '/':
+            bp_as_module["path"] = f"{path_left_strip(cip_path)}bp"
+        else:
+            bp_as_module["path"] = f"{path_left_strip(cip_path)}/bp"
+        module_found(bp_as_module)
 
-        print(f'BackPlane: {this_bp}')
+        print(f'BackPlane: {bp_as_module}')
 
     if not bp_known_size:
         backplane_size = 100
@@ -152,13 +158,13 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
         real_path = f'{cip_path}/bp/{current_slot}'
         path2save = path_left_strip(real_path)
 
-        if real_path == '/bp/2/cnet/8/bp/9':  # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
+        if real_path == '11.120.66.1/bp/5/cnet/6/bp/20':  # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
             pass  # trap for debug. edit string above and set breakpoint here
 
         if current_slot == entry_point_module_in_bp_addr:  #entry point module in this current_slot
             epm['path'] = path2save
             epm['slot'] = current_slot
-            epm['product_name'] = tool.remove_control_chars(this_module['product_name'])
+            epm['product_name'] = tool.remove_control_chars(epm['product_name'])
             module_found(epm)
             p(f"[{current_slot:0>2}] = {epm['product_name']}")
             continue
@@ -214,6 +220,7 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
 
                 if module_found:
                     module_found(this_module)
+                driver.close()
             else:
                 if bp_known_size:
                     modules_in_bp[current_slot] = None
@@ -225,18 +232,24 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
 
                     module_found(empty_slot_as_module)
                     p(f"[{current_slot:0>2}] = ---")
-
+                    driver.close()
                 else:
                     # bp size unknown
-                    # break  # TODO
+                    driver.close()
+                    break  # TODO
                     pass
                 continue
         except ResponseError:
             p(f"Error communicating {real_path}")
+            driver.close()
             continue
 
         except CommError:
-            raise CommError(f"Can't communicate to {real_path}!")
+            # raise CommError(f"Can't communicate to {real_path}!")
+            if not bp_known_size:
+                print(f"Can't communicate to {real_path}!     No more modules?")
+                driver.close()
+                break
         # -------------------------------------------------------------------------------------- access to bp via cn
         # else:
         #     p(f'Scanning BackPlane at {cip_path}')
@@ -328,10 +341,10 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
         #     driver.close()
         #
         # # global_data.bp[this_bp_sn].update(modules_in_bp)
-    return this_bp_sn, modules_in_bp, this_bp, cn_modules_paths
+    return this_bp_sn, modules_in_bp, bp_as_module, cn_modules_paths
 
 
-def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update=None, max_node_num=100):
+def scan_cn(cip_path, format='', exclude_bp_sn='', p=print, current_cn_node_update=None, max_node_num=99):
     if current_cn_node_update:  # ---------------------------------------------logging function
         cn_node_updt = current_cn_node_update
     else:  # ---------------------------------------------------------------NO logging function
@@ -397,7 +410,6 @@ def discover(entry_point):
 
 if __name__ == '__main__':
     print('Scanner lib standalone running')
-    ic.enable()
     configure_default_logger(filename='/home/damir/pycomm3.log')
 
     test_entry = '192.168.0.123'

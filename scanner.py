@@ -2,7 +2,6 @@ import time
 from datetime import datetime, timezone
 from pprint import pprint
 
-from icecream import ic
 from PyQt6.QtCore import QThread, pyqtSignal, QRunnable, pyqtSlot, QObject
 from scanner_lib import scan_cn, scan_bp, CommError, get_module_sn, get_backplane_sn
 
@@ -133,8 +132,8 @@ class Scaner(QRunnable):
         module["system"] = self.system_name
         # key = f"{self.system_name}/{module['serial']}"
         key = path_system_name
-        pprint(key)
-        pprint(module, indent=2)
+        # pprint(key)
+        # pprint(module, indent=2)
         return key
 
     @pyqtSlot()
@@ -151,13 +150,16 @@ class Scaner(QRunnable):
             for cn_serial in cn_path.keys():
                 self.controlnet_modules_serial.add(cn_serial)
 
-            if self.deep_scan and ic(len(cn_path)):
+            if self.deep_scan and len(cn_path):
                 self.signals.progress.emit(self.system_name, '***************** Deep scan goes next...')
                 for cn_serial, cip_path in cn_path.items():
-                    controlnet_nodes, cn_modules_paths = scan_cn(cip_path,
-                                                                 p=self._progress_update,
-                                                                 current_cn_node_update=self._current_cn_node_update
-                                                                 )
+                    try:
+                        controlnet_nodes, cn_modules_paths = scan_cn(cip_path,
+                                                                     p=self._progress_update,
+                                                                     current_cn_node_update=self._current_cn_node_update
+                                                                     )
+                    except CommError:
+                        print(f'Error scanning ControlNet {cip_path} !')
                     self.saver.cn_nodes.append(controlnet_nodes)
                     if len(controlnet_nodes) > 1:  # more than one node in CN network found
                         for bp, p in cn_modules_paths.items():
@@ -171,10 +173,14 @@ class Scaner(QRunnable):
                                 self.controlnet_modules_serial.add(controlnet_serial)
                             if backplane_serial:
                                 self.backplane_serial.add(backplane_serial)
-                            level1_bp = scan_bp(cip_path=p,
-                                                p=self._progress_update,
-                                                module_found=self._module_found
-                                                )
+                            try:
+                                level1_bp = scan_bp(cip_path=p,
+                                                    p=self._progress_update,
+                                                    module_found=self._module_found
+                                                    )
+                            except CommError:
+                                print(f'Error scanning Backplane {cip_path} !')
+
             if not len(cn_path):
                 self.signals.progress.emit(self.system_name, '***************** No ControlNet modules in this BackPlane')
                 ep = scan_bp(cip_path=self.entry_point,
@@ -190,8 +196,8 @@ class Scaner(QRunnable):
             fname = get_user_data_path() / f'{self.system_name}.data'
             self.saver.store_data()
             self.saver.store_data(filename=fname)
-            ic(f"Data saved: {get_user_data_path() / f'{self.system_name}.data'}")
+            print(f"Data saved: {get_user_data_path() / f'{self.system_name}.data'}")
             self.signals.finished.emit(self.system_name)
         finally:
-            ic(f"Scanner complete {self.system_name}")
+            print(f"Scanner complete {self.system_name}")
             # self.finish_callback(self.system_name)
