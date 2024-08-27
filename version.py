@@ -1,2 +1,2 @@
 # global revision
-rev = '0.7.dev'
+rev = '0.8.dev'
