@@ -104,25 +104,6 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
             if epm['product_code'] in flex_adapter:
                 this_flex_response = entry_point_module_driver.generic_message(**cip_request.flex_info)
                 p(f'{format}Flex adapter at {cip_path}')
-                # pprint(this_flex_response.value)
-                # # b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules
-                # # b'\x01\x00\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # IB32 module
-                # # b'\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # OB32 module
-                # # Split into pieces of 2 bytes
-                # f_modules = [this_flex_response[i:i + 2] for i in range(0, len(this_flex_response), 2)]
-                # for _slot, _module in enumerate(f_modules):
-                #     if _module == b'\x00\x0f':
-                #         break
-                #     f_mod = new_blank_module()
-                #     f_mod["product_type"] = "FlexIO"
-                #     f_mod['slot'] = _slot
-                #     f_mod['path'] = f"{path_left_strip(cip_path)}/bp/{_slot}"
-                #     if _module == b'\x01\x00':
-                #         f_mod["product_name"] = "IB32 Flex module"
-                #     if _module == b'\x11\x02':
-                #         f_mod["product_name"] = "OB32 Flex module"
-                #     module_found(_module)
-                # return this_bp_sn, modules_in_bp, bp_as_module, cn_modules_paths
 
         this_bp_response = entry_point_module_driver.generic_message(**cip_request.bp_info_connected)
         bp_as_module = new_blank_module()
@@ -185,8 +166,10 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
                 f_mod['path'] = f"{path_left_strip(cip_path)}/bp/{_slot}"
                 if _module == b'\x01\x00':
                     f_mod["product_name"] = "IB32 Flex module"
-                if _module == b'\x11\x02':
+                elif _module == b'\x11\x02':
                     f_mod["product_name"] = "OB32 Flex module"
+                else:
+                    f_mod["product_name"] = f"UNKNOWN Flex module {_module:0>4x}"
                 module_found(f_mod)
             return this_bp_sn, modules_in_bp, bp_as_module, cn_modules_paths
         ## ###
