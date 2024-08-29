@@ -101,6 +101,28 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
                     epm['cn_node']='UNKNOWN'
             if epm['product_code'] in ethernet_module:
                 pass
+            if epm['product_code'] in flex_adapter:
+                this_flex_response = entry_point_module_driver.generic_message(**cip_request.flex_info)
+                p(f'{format}Flex adapter at {cip_path}')
+                # pprint(this_flex_response.value)
+                # # b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules
+                # # b'\x01\x00\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # IB32 module
+                # # b'\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # OB32 module
+                # # Split into pieces of 2 bytes
+                # f_modules = [this_flex_response[i:i + 2] for i in range(0, len(this_flex_response), 2)]
+                # for _slot, _module in enumerate(f_modules):
+                #     if _module == b'\x00\x0f':
+                #         break
+                #     f_mod = new_blank_module()
+                #     f_mod["product_type"] = "FlexIO"
+                #     f_mod['slot'] = _slot
+                #     f_mod['path'] = f"{path_left_strip(cip_path)}/bp/{_slot}"
+                #     if _module == b'\x01\x00':
+                #         f_mod["product_name"] = "IB32 Flex module"
+                #     if _module == b'\x11\x02':
+                #         f_mod["product_name"] = "OB32 Flex module"
+                #     module_found(_module)
+                # return this_bp_sn, modules_in_bp, bp_as_module, cn_modules_paths
 
         this_bp_response = entry_point_module_driver.generic_message(**cip_request.bp_info_connected)
         bp_as_module = new_blank_module()
@@ -146,6 +168,29 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
 
         print(f'BackPlane: {bp_as_module}')
 
+        ## ###
+        if this_flex_response:
+            # pprint(this_flex_response.value)
+            # b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules
+            # b'\x01\x00\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # IB32 module
+            # b'\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # OB32 module
+            # Split into pieces of 2 bytes
+            f_modules = [this_flex_response.value[i:i + 2] for i in range(0, len(this_flex_response.value), 2)]
+            for _slot, _module in enumerate(f_modules):
+                if _module == b'\x00\x0f':
+                    break
+                f_mod = new_blank_module()
+                f_mod["product_type"] = "FlexIO"
+                f_mod['slot'] = _slot
+                f_mod['path'] = f"{path_left_strip(cip_path)}/bp/{_slot}"
+                if _module == b'\x01\x00':
+                    f_mod["product_name"] = "IB32 Flex module"
+                if _module == b'\x11\x02':
+                    f_mod["product_name"] = "OB32 Flex module"
+                module_found(f_mod)
+            return this_bp_sn, modules_in_bp, bp_as_module, cn_modules_paths
+        ## ###
+
     if not bp_known_size:
         backplane_size = 100
     else:
@@ -158,7 +203,7 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
         real_path = f'{cip_path}/bp/{current_slot}'
         path2save = path_left_strip(real_path)
 
-        if real_path == '11.120.66.1/bp/5/cnet/6/bp/20':  # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
+        if real_path == '192.168.0.124/bp/2/cnet/27':  # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
             pass  # trap for debug. edit string above and set breakpoint here
 
         if current_slot == entry_point_module_in_bp_addr:  #entry point module in this current_slot
