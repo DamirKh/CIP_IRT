@@ -124,7 +124,7 @@ class MainWindow(QWidget):
             row_index = 0
             self.top_checkbox = QCheckBox()
             self.ping_checkbox = QCheckBox('Ping IP addresses')
-            self.ping_checkbox.setDisabled(True)
+            # self.ping_checkbox.setDisabled(True)
             self.grid_layout.addWidget(self.top_checkbox, row_index, 0)
             self.grid_layout.addWidget(QLabel("System name"), row_index, 1)
             self.grid_layout.addWidget(QLabel("Entry point"), row_index, 3)
