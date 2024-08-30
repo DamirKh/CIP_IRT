@@ -6,7 +6,7 @@ from pprint import pprint
 import pandas as pd
 import openpyxl
 
-from icecream import ic
+# from icecream import ic
 
 from PyQt6.QtWidgets import (
     QApplication,

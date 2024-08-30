@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize, Qt, QThreadPool
 
-from icecream import ic
+# from icecream import ic
 
 import sys
 import os
@@ -90,7 +90,7 @@ class MainWindow(QWidget):
         self.resize(800, 600)
 
         # Program settings file
-        self.program_settings_file_path = ic(get_user_data_path() / f"main_prog.cfg")
+        self.program_settings_file_path = get_user_data_path() / f"main_prog.cfg"
 
         # Initial widgets (start with one row)
         self.system_name = []
@@ -506,15 +506,15 @@ class MainWindow(QWidget):
         about_dialog.exec()
 
 if __name__ == '__main__':
-    ic(os.name)
+    # ic(os.name)
     # Get the data path
-    data_path = ic(get_user_data_path())
+    data_path = get_user_data_path()
     prev_data_path = data_path / 'prev'
 
     # Create the directory if it doesn't exist
-    if not ic(data_path.exists()):
+    if not data_path.exists():
         data_path.mkdir(parents=True, exist_ok=True)
-    if not ic(prev_data_path.exists()):
+    if not prev_data_path.exists():
         prev_data_path.mkdir(parents=True, exist_ok=True)
 
     app = QApplication(sys.argv)
