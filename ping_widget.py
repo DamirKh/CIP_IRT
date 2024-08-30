@@ -1,5 +1,7 @@
 import sys
 import time
+import platform
+
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -7,7 +9,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QHBoxLayout,
 )
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal, QProcess
 
 from PyQt6.QtCore import QTimer, QSize
 from host_ping import ping
@@ -44,35 +46,45 @@ class PingWidget(QWidget):
         self.setLayout(square_layout)
 
         # Initialize ping thread
-        self.ping_thread = None
+        # self.ping_thread = None
         self.timer = None
         self.ping_results = None
         self.current_ping_index = 0
         self._results = [None] * len(self.square_labels)
 
-
-        # self.start_ping()
+        self.ping_proc = QProcess()
+        self.ping_proc.setProgram('ping')
 
     def start_ping(self, ip_address: str):
         self._ip_address = ip_address
-        # self._results = [None] * len(self.square_labels)
+        system = platform.system()
 
-        # Start pinging
-        self.ping_thread = PingThread(self._ip_address)
-        self.ping_thread.ping_result.connect(self.update_square_label)
-        self.ping_thread.start()
+        # Windows
+        if system == "Windows":
+            arguments = ['-n', '1', '-w', '1', self._ip_address]
+        # Linux/macOS
+        else:
+            arguments = ['-c', '1', '-w', '1', self._ip_address]
+
+        self.ping_proc.setArguments(arguments)
+        self.ping_proc.finished.connect(self.ping_finished)
+        # self.ping_proc.start()
 
         # Start the timer to update the progress bar
         self.timer = QTimer()
-        # self.timer.timeout.connect(self.update_progress)  # Use update_progress for both progress and result label
-        self.timer.start(500)
+        # self.timer.
+        self.timer.timeout.connect(self.ping_proc.start)
+        self.timer.start(3000)
+
+    def ping_finished(self):
+        # pass
+        # print(".", end='')
+        success = bool(self.ping_proc.exitCode() == 0)  # True if ping is successful
+        self.update_square_label(success)
+
 
     def stop_ping(self):
-
-        if self.ping_thread:
-            self.ping_thread.stop()
-            self.ping_thread.wait()  # Wait for the thread to finish
-            self.ping_thread = None
+        self.ping_proc.kill()
         if self.timer is None:
             pass
         else:
@@ -135,6 +147,8 @@ class PingThread(QThread):
         """Stops the ping thread."""
         self._running = False
         self.stopped.emit()
+
+
 
 
 if __name__ == "__main__":
