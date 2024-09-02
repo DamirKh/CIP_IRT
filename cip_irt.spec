@@ -52,7 +52,7 @@ is_pyz = PYZ(is_a.pure)
 
 is_exe = EXE(
     is_pyz,
-    is_pyz.scripts,
+    is_a.scripts,
     [],
     exclude_binaries=True,
     name='IRT_SettingsImporter',
