@@ -14,11 +14,11 @@ mp_a = Analysis(
     noarchive=False,
     optimize=0,
 )
-mp_pyz = PYZ(a.pure)
+mp_pyz = PYZ(mp_a.pure)
 
 mp_exe = EXE(
-    pyz,
-    a.scripts,
+    mp_pyz,
+    mp_a.scripts,
     [],
     exclude_binaries=True,
     name='CIP_IRT',
@@ -48,11 +48,11 @@ is_a = Analysis(
     noarchive=False,
     optimize=0,
 )
-is_pyz = PYZ(a.pure)
+is_pyz = PYZ(is_a.pure)
 
 is_exe = EXE(
-    pyz,
-    a.scripts,
+    is_pyz,
+    is_pyz.scripts,
     [],
     exclude_binaries=True,
     name='IRT_SettingsImporter',
