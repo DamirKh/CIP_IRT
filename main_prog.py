@@ -500,8 +500,13 @@ class MainWindow(QWidget):
         about_dialog = QMessageBox()
         about_dialog.setWindowTitle("About CIP Inventory Resource Tracker")
         about_dialog.setIcon(QMessageBox.Icon.Information)
-        about_dialog.setText(f"CIP Inventory Resource Tracker\nVersion {rev}\n\nCreated by Damir Khakimov (1352)\n\nYour data saved here: {get_user_data_path()}")
-        about_dialog.setInformativeText("This application is designed for CPC")
+        about_dialog.setText(f"CIP Inventory Resource Tracker\n\n"
+                             f"Version {rev}\n"
+                             f"Multithreading with maximum {self.threadpool.maxThreadCount()} threads\n"
+                             f"Your data saved here: {get_user_data_path()}\n"
+                             )
+        about_dialog.setInformativeText("This application is designed for CPC \n"
+                                        "by Damir Khakimov (1352)\n")
         about_dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
         about_dialog.exec()
 
