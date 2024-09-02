@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+# https://www.zacoding.com/en/post/pyinstaller-create-multiple-executables/
 
 mp_a = Analysis(
     ['main_prog.py'],
