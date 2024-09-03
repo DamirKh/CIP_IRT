@@ -1,2 +1,2 @@
 # global revision
-rev = '0.10.dbg'
+rev = '0.11'

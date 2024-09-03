@@ -1,3 +1,4 @@
+import subprocess
 import time
 from pprint import pprint
 
@@ -196,6 +197,16 @@ class MainWindow(QWidget):
             spacer_hor = QWidget()
             top_layout.addWidget(spacer_hor, stretch=1)
 
+            # Add a button to show data directory
+            self.open_folder_button = QPushButton("Explore data folder")
+            self.open_folder_button.setIcon(QIcon(os.path.join(asset_dir, "folder-open-regular.png")))
+            self.open_folder_button.setIconSize(QSize(32, 32))
+            self.open_folder_button.setToolTip("Open data folder")
+            self.open_folder_button.setText("")
+            self.open_folder_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            self.open_folder_button.clicked.connect(self.open_folder)
+            top_layout.addWidget(self.open_folder_button, stretch=0)
+
             # Add a button to show "About" dialog
             self.about_button = QPushButton("About")
             self.about_button.setIcon(QIcon(os.path.join(asset_dir, "information.png")))
@@ -205,6 +216,7 @@ class MainWindow(QWidget):
             self.about_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             self.about_button.clicked.connect(self.show_about)
             top_layout.addWidget(self.about_button, stretch=0)
+
 
             # Add a scrollable grid
             main_layout.addWidget(self.scroll_area, stretch=1)
@@ -225,6 +237,19 @@ class MainWindow(QWidget):
             pass
         self.threadpool = QThreadPool()
         print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
+
+
+    def open_folder(self):
+        directory_path = get_user_data_path()
+        print(f"Opening folder {directory_path}")
+        if sys.platform == "win32":
+            os.startfile(directory_path)
+        elif sys.platform == "darwin":
+            subprocess.run(["open", directory_path])
+        elif sys.platform == "linux":
+            subprocess.run(["xdg-open", directory_path])
+        else:
+            QMessageBox.warning(self, "Error", f"Unsupported platform: {sys.platform}")
 
     def enable_main_window(self):
         self.setDisabled(False)
