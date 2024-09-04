@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QHeaderView, QMessageBox, QDialogButtonBox, QComboBox, QGroupBox, QLineEdit, QGridLayout, QCheckBox, QDialog,
     QFileDialog,
 )
-from PyQt6 import QtGui
+from PyQt6 import QtGui, QtWidgets
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize, pyqtSignal
 
@@ -30,6 +30,8 @@ from user_data import basedir, asset_dir
 
 
 class ConfigureDialog(QDialog):
+    filterChanged = pyqtSignal(int, str)  # Define the signal when filter changed via config dialog
+
     def __init__(self, data_model, parent=None):
         super().__init__(parent)
         # pprint(parent)
@@ -100,7 +102,8 @@ class ConfigureDialog(QDialog):
         self.data_model.dataChanged.emit(QModelIndex(), QModelIndex())
 
     def update_filter(self, column_index, text):
-        self.data_model._apply_filter(column_index, filter_value=text)
+        # self.data_model._apply_filter(column_index, filter_value=text)
+        self.filterChanged.emit(column_index, text)  # Emit the signal
         self.data_model.layoutChanged.emit()
         self.data_model.dataChanged.emit(QModelIndex(), QModelIndex())
 
@@ -123,10 +126,11 @@ class ConfigureDialog(QDialog):
 class DataPreviewWidget(QWidget):
     finished = pyqtSignal()
 
-    def __init__(self, data, parent=None):
+    def __init__(self, data, parent=None, settings_file="data_preview_settings.pkl"):
         super().__init__(parent)
 
         self.setWindowTitle("Data Viewer")
+        self._column_width = {}
 
         # Create the table view and set editability
         self.table_view = QTableView()
@@ -137,11 +141,11 @@ class DataPreviewWidget(QWidget):
         # self.table_view.verticalHeader().setVisible(False)
 
         # Create the data model
-        self.data_model = DataModel(data)
+        self.data_model: DataModel = DataModel(data)
         self.table_view.setModel(self.data_model)
 
         # Load view settings from file (if exists)
-        self.settings_file = get_user_data_path() / "data_preview_settings.pkl"
+        self.settings_file = get_user_data_path() / settings_file
         # self.column_visibility = [True for _ in range(data.shape[1])]  # init column visibility
         self.load_settings(data.shape[1])
 
@@ -177,7 +181,7 @@ class DataPreviewWidget(QWidget):
 
         # Create the layout
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Data Preview:"))
+        # layout.addWidget(QLabel("Data Preview:"))
         layout.addLayout(top_buttons_layout)
         layout.addWidget(self.table_view)
 
@@ -196,29 +200,46 @@ class DataPreviewWidget(QWidget):
         self.table_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table_view.customContextMenuRequested.connect(self.show_context_menu)
 
+        # column resize handler
+        self.table_view.horizontalHeader().sectionResized.connect(self.column_resized)
+
         for column_index, saved_visibility in enumerate(self.column_visibility):
             self.toggle_column_visibility(column_index, saved_visibility)
 
         for column_index, saved_filter in enumerate(self.data_model._filters):
             self.data_model._apply_filter(column_index, saved_filter)
 
+
+    def on_filter_changed(self, column_index, text):
+        self.data_model._apply_filter(column_index, text)
+
+
+    def column_resized(self, index, old_size, new_size):
+        self._column_width[index] = new_size if new_size != 0 else old_size
+        pass
+
+
     def show_configure_dialog(self):
-        dialog = ConfigureDialog(self.data_model, self)
-        dialog.exec()
+        # dialog = ConfigureDialog(self.data_model, self)
+        self.configure_dialog = ConfigureDialog(self.data_model, self)
+        self.configure_dialog.filterChanged.connect(self.on_filter_changed)
+        self.configure_dialog.exec()
 
     def save_column_widths(self):
         """Returns a list of column widths."""
-        return [self.table_view.columnWidth(i) for i in range(self.data_model.columnCount(QModelIndex()))]
+        widths = [self.table_view.columnWidth(i) for i in range(self.data_model.columnCount(QModelIndex()))]
+        for index, width in self._column_width.items():
+            try:
+                widths[index] = width
+            except IndexError:
+                pass
+        return widths
 
     def restore_column_widths(self, widths):
         """Restores column widths from a list."""
         for i, width in enumerate(widths):
             if i < self.data_model.columnCount(QModelIndex()):
                 self.table_view.setColumnWidth(i, width)
-
-    def save_window_size(self):
-        """Returns the current window size."""
-        return self.size()
 
     def restore_window_size(self, size):
         """Restores the window size."""
@@ -249,7 +270,7 @@ class DataPreviewWidget(QWidget):
             "column_visibility": self.column_visibility,
             "filters": self.data_model._filters,
             "column_widths": self.save_column_widths(),  # Save column widths
-            "window_size": self.save_window_size()  # Save window size
+            "window_size": self.size()  # Save window size
         }
         try:
             with open(self.settings_file, 'wb') as f:
@@ -314,10 +335,14 @@ class DataPreviewWidget(QWidget):
             self.table_view.setColumnHidden(column_index, False)
 
             header.resizeSection(column_index, header.sectionSize(column_index))
+            # header.setSectionResizeMode(column_index, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+            self.data_model.layoutChanged.emit()
+            self.data_model.dataChanged.emit(QModelIndex(), QModelIndex())
+            header.setSectionResizeMode(column_index, QtWidgets.QHeaderView.ResizeMode.Interactive)
 
         else:
             # Hide the column completely
-            header.resizeSection(column_index, 0)  # Set width to 0
+            # header.resizeSection(column_index, 0)  # Set width to 0
             self.table_view.setColumnHidden(column_index, True)
 
         self.data_model.layoutChanged.emit()
@@ -381,8 +406,12 @@ class DataModel(QAbstractTableModel):
 
     def data(self, index, role):
         if index.row() == 0 and role == Qt.ItemDataRole.DisplayRole:
-            value = self._filters[index.column()]
-            return str(value)
+            try:
+                value = self._filters[index.column()]
+            except IndexError:
+                return ''
+            else:
+                return str(value)
         elif role == Qt.ItemDataRole.DisplayRole:
             # Handle out-of-bounds index
             if index.row() - 1 < len(self.filtered_data):
@@ -432,8 +461,8 @@ class DataModel(QAbstractTableModel):
                     if filter_terms:
                         filter_mask = False
                         for term in filter_terms:
-                            filter_mask = filter_mask | self.filtered_data.iloc[:, i].astype(str).str.contains(term,
-                                                                                                               case=False)
+                            filter_mask = filter_mask | self.filtered_data.iloc[:, i].astype(str).str.contains(term, case=False, regex=False)
+                            print(term)
                         self.filtered_data = self.filtered_data[filter_mask]
 
         self.layoutChanged.emit()
@@ -458,8 +487,11 @@ class DataModel(QAbstractTableModel):
                     return str(self.filtered_data.index[section - 1])
         # filtered by value in this column highlighted
         elif role == Qt.ItemDataRole.BackgroundRole and orientation == Qt.Orientation.Horizontal:
-            if self._filters[section]:
-                return QtGui.QColor("lightgrey")
+            try:
+                if self._filters[section]:
+                    return QtGui.QColor("lightgrey")
+            except IndexError:
+                pass
         return None
 
 
@@ -471,7 +503,7 @@ if __name__ == "__main__":
     import string
 
 
-    def generate_test_data(num_rows=5, num_cols=3, max_string_length=10):
+    def generate_test_data(num_rows=5, num_cols=20, max_string_length=10):
         """
         Generates test data for the DataPreviewWidget.
 
@@ -501,7 +533,7 @@ if __name__ == "__main__":
 
 
     # Sample data
-    data = generate_test_data(num_rows=10000, num_cols=20, max_string_length=2)  # Generate 10 rows, 10 columns
+    data = generate_test_data(num_rows=10000, num_cols=20, max_string_length=10)  # Generate 10 rows, 10 columns
 
     # # load data
     # test_labor = get_user_data_path() / "labor1.data"
@@ -509,7 +541,7 @@ if __name__ == "__main__":
     # global_data.restore_data()
     # data = pd.DataFrame.from_dict(global_data.module, orient='index')
 
-    preview_widget = DataPreviewWidget(data)
+    preview_widget = DataPreviewWidget(data, settings_file='settings.tmp')
     preview_widget.show()
 
     sys.exit(app.exec())
