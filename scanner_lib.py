@@ -103,7 +103,7 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
                 pass
             if epm['product_code'] in flex_adapter:
                 this_flex_response = entry_point_module_driver.generic_message(**cip_request.flex_info)
-                p(f'{format}Flex adapter at {cip_path}')
+                p(f'Flex adapter at {cip_path}')
 
         this_bp_response = entry_point_module_driver.generic_message(**cip_request.bp_info_connected)
         bp_as_module = new_blank_module()

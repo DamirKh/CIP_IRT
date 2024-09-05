@@ -10,7 +10,7 @@ from saver import get_user_data_path
 
 # global_data.restore_data()
 
-TIME_FORMAT='%Y-%m-%d_%H:%M'
+TIME_FORMAT = '%Y%m%d_%H%M'
 
 class PreScaner(QThread):
     """A scanner thread to perform modules scan"""
@@ -90,7 +90,6 @@ class ScannerSignals(QObject):
 class Scaner(QRunnable):
     """A scanner thread to perform modules scan"""
 
-
     def __init__(self, system_name: str, entry_point: str, finish_callback,  deep_scan: bool = True):
         super(Scaner, self).__init__()
         # s = SystemConfigSaver(filename=f'{system_name}.json')
@@ -125,15 +124,14 @@ class Scaner(QRunnable):
         self.signals.module_found.emit(module)
 
     def _module_found_print(self, module: dict):
-        # pprint(module)
+        """add system name to the module
+        returns key which is  module['path'] with replaced IP by system name"""
         path_ip = module["path"].split('/')
         path_ip[0] = self.system_name
         path_system_name = '/'.join(path_ip)
         module["system"] = self.system_name
-        # key = f"{self.system_name}/{module['serial']}"
+        # key = f"{self.system_name}/{module['serial']}" # may be later
         key = path_system_name
-        # pprint(key)
-        # pprint(module, indent=2)
         return key
 
     @pyqtSlot()
@@ -152,7 +150,7 @@ class Scaner(QRunnable):
 
             if self.deep_scan and len(cn_path):
                 self.signals.progress.emit(self.system_name, '***************** Deep scan goes next...')
-                for cn_serial, cip_path in cn_path.items():
+                for cn_serial, cip_path in cn_path.items():  # scans controlnets via each CN module in entry point Backplane
                     try:
                         controlnet_nodes, cn_modules_paths = scan_cn(cip_path,
                                                                      p=self._progress_update,
@@ -174,6 +172,10 @@ class Scaner(QRunnable):
                             if backplane_serial:
                                 self.backplane_serial.add(backplane_serial)
                             try:
+                                # this will scan backplanes via controlnet
+                                # only backplanes which
+                                # 1. backplane's SN not seen before
+                                # 2. ControlNet module's SN not seen before
                                 level1_bp = scan_bp(cip_path=p,
                                                     p=self._progress_update,
                                                     module_found=self._module_found
@@ -186,6 +188,9 @@ class Scaner(QRunnable):
                 ep = scan_bp(cip_path=self.entry_point,
                          module_found=self._module_found
                          )
+            if not self.deep_scan and len(cn_path):
+                self.signals.progress.emit(self.system_name, f'*** WARNING: Deep scan not checked, but found {len(cn_path)} ControlNet modules!')
+
 
         except CommError as e:
             self.signals.communication_error.emit(self.system_name)
@@ -196,7 +201,7 @@ class Scaner(QRunnable):
             fname = get_user_data_path() / f'{self.system_name}.data'
             self.saver.store_data()
             self.saver.store_data(filename=fname)
-            print(f"Data saved: {get_user_data_path() / f'{self.system_name}.data'}")
+            # print(f"Data saved: {get_user_data_path() / f'{self.system_name}.data'}")
             self.signals.finished.emit(self.system_name)
         finally:
             print(f"Scanner complete {self.system_name}")

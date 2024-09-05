@@ -36,6 +36,7 @@ class global_data_obj(object):
         }
         with open(fname, 'wb') as file:
             pickle.dump(data, file)
+        print(f"Data [{self.entry_point}] saved in {fname}")
 
     def restore_data(self, filename=None):
         """Restores data from a pickle file.

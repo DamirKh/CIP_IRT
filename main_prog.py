@@ -34,6 +34,7 @@ from pathlib import Path
 
 from add_system import AddSystemDialog, EditSystemDialog
 from ping_widget import PingWidget
+from log_widget import LogWidget
 
 from version import rev
 from saver import get_user_data_path
@@ -101,6 +102,7 @@ class MainWindow(QWidget):
         self.preview_buttons = []
         self.checkboxes = []
         self.delete_buttons = []
+        self.log_buttons = []
 
         self.view_data_window = None
 
@@ -294,6 +296,7 @@ class MainWindow(QWidget):
                     continue
                 try:
                     print(f"Trying to scan {current_system.text()} via {self.entry_point[i].text()}...")
+                    self.log_buttons[i].start_log()
                     running_scanner = Scaner(
                         system_name=current_system.text(),
                         entry_point=self.entry_point[i].text(),
@@ -317,6 +320,7 @@ class MainWindow(QWidget):
         for i, current_system in enumerate(self.system_name):
             if current_system.text() == system_name:
                 self.last_scan_time[i].setText(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                self.log_buttons[i].stop_log()
                 break
 
     def communication_error(self, system_name: str):
@@ -333,6 +337,7 @@ class MainWindow(QWidget):
         for i, current_system in enumerate(self.system_name):
             if current_system.text() == system_name:
                 self.ping_status[i].progress_forward()
+                self.log_buttons[i].log(message)
                 break
 
     def module_found(self, module: dict):
@@ -466,6 +471,7 @@ class MainWindow(QWidget):
         self.preview_buttons.append(QPushButton(f"Edit"))
         self.preview_buttons[-1].clicked.connect(lambda: self.edit_row(row_index - 1))
         # self.preview_buttons[-1].setDisabled(True)
+        self.log_buttons.append(LogWidget(viewer_title=f"{system_name} scanner log"))
 
         self.checkboxes.append(QCheckBox())
         self.checkboxes[-1].setChecked(checked)
@@ -486,12 +492,14 @@ class MainWindow(QWidget):
         self.grid_layout.addWidget(self.entry_point[job_no], row_index, 3)
         self.grid_layout.addWidget(self.ping_status[job_no], row_index, 4)
         self.grid_layout.addWidget(self.last_scan_time[job_no], row_index, 5)
+        self.grid_layout.addWidget(self.log_buttons[job_no], row_index, 6)
+
         self.grid_layout.addWidget(self.preview_buttons[job_no], row_index, 7)
 
         # Create delete button
         self.delete_buttons.append(QPushButton("Delete"))
         self.delete_buttons[-1].clicked.connect(lambda: self.delete_row(row_index - 1))
-        self.grid_layout.addWidget(self.delete_buttons[-1], row_index, 6)
+        self.grid_layout.addWidget(self.delete_buttons[-1], row_index, 8)
 
 
 

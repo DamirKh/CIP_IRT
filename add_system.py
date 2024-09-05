@@ -22,7 +22,7 @@ class AddSystemDialog(QDialog):
     """Main window with a button to trigger the long task."""
 
     # Define a signal to emit data
-    data_ready = pyqtSignal(str, str, bool)  # Arguments for name, IP, deep scan
+    data_ready = pyqtSignal(str, str, bool)  # Arguments for SystemName, IP, deep scan
 
     def __init__(self, parent=None, system_names_defined=[]):
         super().__init__(parent)
