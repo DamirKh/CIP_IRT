@@ -462,7 +462,7 @@ class DataModel(QAbstractTableModel):
                         filter_mask = False
                         for term in filter_terms:
                             filter_mask = filter_mask | self.filtered_data.iloc[:, i].astype(str).str.contains(term, case=False, regex=False)
-                            print(term)
+                            # print(term)
                         self.filtered_data = self.filtered_data[filter_mask]
 
         self.layoutChanged.emit()
