@@ -2,12 +2,14 @@ import sys
 import time, datetime
 
 from PyQt6.QtCore import QThread, pyqtSignal, QThreadPool
+from PyQt6.QtGui import QMovie
 from PyQt6.QtWidgets import (
     QWidget,
     QLabel,
     QPushButton,
     QHBoxLayout, QDialog, QTableWidget, QVBoxLayout, QTableWidgetItem, QHeaderView, QFileDialog
 )
+
 
 class CheckUsedCogsThread(QThread):
     progress = pyqtSignal(int)
@@ -28,6 +30,16 @@ class CheckUsedCogsThread(QThread):
         """Stops the ping thread."""
         self._running = False
 
+
+class AnimatedLabel(QLabel):
+    def __init__(self, image_path, parent=None):
+        super().__init__(parent)
+        self.movie = QMovie(image_path)
+
+        self.setMovie(self.movie)
+        self.movie.start()
+
+
 class CogWidget(QWidget):
     def __init__(self, pool: QThreadPool):
         """
@@ -36,7 +48,8 @@ class CogWidget(QWidget):
         self._checking_tread = CheckUsedCogsThread(pool)
         self._checking_tread.progress.connect(self.update_cog_counter)
 
-        self.label_cog = QLabel('Cog')
+        # self.label_cog = QLabel('Cog')
+        self.label_cog = AnimatedLabel("asset/loading.gif", self)  # Replace with your GIF
         self.label_cog_counter = QLabel('0')
 
         # Create a horizontal layout for the square labels
@@ -47,9 +60,13 @@ class CogWidget(QWidget):
         self._checking_tread.start()
 
     def update_cog_counter(self, used_cogs: int):
-        print(f"Used cogs: {used_cogs}")
-        self.label_cog_counter.setText(f"{used_cogs}")
+        # print(f"Used cogs: {used_cogs}")
+        if used_cogs:
+            self.label_cog.movie.start()
+        else:
+            self.label_cog.movie.stop()
 
+        self.label_cog_counter.setText(f"{used_cogs}")
 
 
 if __name__ == "__main__":
@@ -57,13 +74,7 @@ if __name__ == "__main__":
         QApplication)
 
     app = QApplication(sys.argv)
-    window = CogWidget()
-    window.show()
-
-    window.start_log()
-    window.log("Hello!")
-    time.sleep(2)
-    window.log("Bye!")
-    window.stop_log()
+    pool = QThreadPool()
+    window = CogWidget(pool)
     window.show()
     sys.exit(app.exec())

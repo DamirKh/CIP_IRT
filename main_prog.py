@@ -45,6 +45,7 @@ from global_data import global_data_obj
 import preview_data
 
 from user_data import basedir, asset_dir
+from cog_widget import CogWidget
 
 
 def load_data(path):
@@ -103,6 +104,9 @@ class MainWindow(QWidget):
         self.checkboxes = []
         self.delete_buttons = []
         self.log_buttons = []
+
+        self.threadpool = QThreadPool()
+        print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
 
         self.view_data_window = None
 
@@ -199,6 +203,10 @@ class MainWindow(QWidget):
             spacer_hor = QWidget()
             top_layout.addWidget(spacer_hor, stretch=1)
 
+            # Add cog widget
+            self.cog_widget = CogWidget(self.threadpool)
+            top_layout.addWidget(self.cog_widget, stretch=0)
+
             # Add a button to show data directory
             self.open_folder_button = QPushButton("Explore data folder")
             self.open_folder_button.setIcon(QIcon(os.path.join(asset_dir, "folder-open-regular.png")))
@@ -237,8 +245,7 @@ class MainWindow(QWidget):
             # Add initial widgets to grid layout
             # self.add_row()
             pass
-        self.threadpool = QThreadPool()
-        print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
+
 
 
     def open_folder(self):
