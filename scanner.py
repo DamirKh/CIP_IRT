@@ -80,6 +80,7 @@ class ScannerSignals(QObject):
         int indicating % progress
 
     '''
+    start = pyqtSignal(str)
     finished = pyqtSignal(str)
     progress = pyqtSignal(str, str)
     cn_node_current = pyqtSignal(str)
@@ -136,9 +137,14 @@ class Scaner(QRunnable):
 
     @pyqtSlot()
     def run(self):
-        print(f'Scaner start {self.system_name}')
+        def emit(message):
+            self.signals.progress.emit(self.system_name, message)
+        self.signals.start.emit(self.system_name)
+        emit(f'Scaner start via Entry Point {self.entry_point}')
+
         self.saver.flush()
         try:
+            emit('***************** Scanning Entry Point...')
             ep = scan_bp(cip_path=self.entry_point,
                          p=self._progress_update,
                          module_found=self._module_found
@@ -149,7 +155,7 @@ class Scaner(QRunnable):
                 self.controlnet_modules_serial.add(cn_serial)
 
             if self.deep_scan and len(cn_path):
-                self.signals.progress.emit(self.system_name, '***************** Deep scan goes next...')
+                emit('***************** Scanning ControlNet Level 0 goes next...')
                 for cn_serial, cip_path in cn_path.items():  # scans controlnets via each CN module in entry point Backplane
                     try:
                         controlnet_nodes, cn_modules_paths = scan_cn(cip_path,
@@ -157,39 +163,85 @@ class Scaner(QRunnable):
                                                                      current_cn_node_update=self._current_cn_node_update
                                                                      )
                     except CommError:
-                        print(f'Error scanning ControlNet {cip_path} !')
-                    self.saver.cn_nodes.append(controlnet_nodes)
-                    if len(controlnet_nodes) > 1:  # more than one node in CN network found
-                        for bp, p in cn_modules_paths.items():
-                            controlnet_serial = get_module_sn(p)
-                            backplane_serial = get_backplane_sn(p)
-                            if controlnet_serial and controlnet_serial in self.controlnet_modules_serial:
-                                continue
-                            if backplane_serial and backplane_serial in self.backplane_serial:
-                                continue
-                            if controlnet_serial:
-                                self.controlnet_modules_serial.add(controlnet_serial)
-                            if backplane_serial:
-                                self.backplane_serial.add(backplane_serial)
-                            try:
-                                # this will scan backplanes via controlnet
-                                # only backplanes which
-                                # 1. backplane's SN not seen before
-                                # 2. ControlNet module's SN not seen before
-                                level1_bp = scan_bp(cip_path=p,
-                                                    p=self._progress_update,
-                                                    module_found=self._module_found
-                                                    )
-                            except CommError:
-                                print(f'Error scanning Backplane {cip_path} !')
+                        # print(f'Error scanning ControlNet {cip_path} !')
+                        emit('Error scanning ControlNet {cip_path} !')
+                    else:
+                        self.saver.cn_nodes.append(controlnet_nodes)
+                        if len(controlnet_nodes) > 1:  # more than one node in CN network found
+                            for bp, p in cn_modules_paths.items():
+                                controlnet_serial = get_module_sn(p)
+                                backplane_serial = get_backplane_sn(p)
+                                if controlnet_serial and controlnet_serial in self.controlnet_modules_serial:
+                                    continue
+                                if backplane_serial and backplane_serial in self.backplane_serial:
+                                    continue
+                                if controlnet_serial:
+                                    self.controlnet_modules_serial.add(controlnet_serial)
+                                if backplane_serial:
+                                    self.backplane_serial.add(backplane_serial)
+                                try:
+                                    # this will scan backplanes via controlnet
+                                    # only backplanes which
+                                    # 1. backplane's SN not seen before
+                                    # 2. ControlNet module's SN not seen before
+                                    # * * * * LEVEL 1
+                                    emit(f'Scan BackPlane Level 1 {p}')
+                                    level1_bp = scan_bp(cip_path=p,
+                                                        p=self._progress_update,
+                                                        module_found=self._module_found
+                                                        )
+                                    bp_sn_l1, modules_l1, bp_l1, cn_path_l1 = level1_bp
+                                    self.backplane_serial.add(bp_sn_l1)
+                                    for cn_serial_l1 in cn_path_l1.keys():
+                                        self.controlnet_modules_serial.add(cn_serial_l1)
+                                    emit('***************** Scanning ControlNet Level 1 goes next...')
+                                    for cn_serial_l1, cip_path_l1 in cn_path_l1.items():  # scans controlnets via each CN module in Backplane level 1
+                                        try:
+                                            controlnet_nodes_l1, cn_modules_paths_l1 = scan_cn(cip_path_l1,
+                                                                                         p=self._progress_update,
+                                                                                         current_cn_node_update=self._current_cn_node_update
+                                                                                         )
+                                        except CommError:
+                                            # print(f'Error scanning ControlNet {cip_path} !')
+                                            emit(f'Error scanning ControlNet {cip_path} !')
+                                        else:
+                                            self.saver.cn_nodes.append(controlnet_nodes)
+                                            if len(controlnet_nodes_l1) > 1:  # more than one node in CN network found
+                                                for bp, p in cn_modules_paths_l1.items():
+                                                    controlnet_serial = get_module_sn(p)
+                                                    backplane_serial = get_backplane_sn(p)
+                                                    if controlnet_serial and controlnet_serial in self.controlnet_modules_serial:
+                                                        continue
+                                                    if backplane_serial and backplane_serial in self.backplane_serial:
+                                                        continue
+                                                    if controlnet_serial:
+                                                        self.controlnet_modules_serial.add(controlnet_serial)
+                                                    if backplane_serial:
+                                                        self.backplane_serial.add(backplane_serial)
+                                                    try:
+                                                        # * * * * LEVEL 2
+                                                        emit(f'Scan BackPlane Level 2 {p}')
+                                                        level2_bp = scan_bp(cip_path=p,
+                                                                            p=self._progress_update,
+                                                                            module_found=self._module_found
+                                                                            )
+                                                        bp_sn_l2, modules_l2, bp_l2, cn_path_l2 = level2_bp
+                                                        if len(cn_path_l2.keys())>1:
+                                                            emit(f'Probably there are level 2 ControlNet existing in BackPlane {p}')
+                                                    except CommError:
+                                                        emit(f'Error scanning Backplane level 2{cip_path} !')
+
+                                except CommError:
+                                    print(f'Error scanning Backplane level 1 {cip_path} !')
 
             if not len(cn_path):
-                self.signals.progress.emit(self.system_name, '***************** No ControlNet modules in this BackPlane')
-                ep = scan_bp(cip_path=self.entry_point,
-                         module_found=self._module_found
-                         )
+                emit('***************** No ControlNet modules in this BackPlane')
+                # does next really need?
+                # ep = scan_bp(cip_path=self.entry_point,
+                #          module_found=self._module_found
+                #          )
             if not self.deep_scan and len(cn_path):
-                self.signals.progress.emit(self.system_name, f'*** WARNING: Deep scan not checked, but found {len(cn_path)} ControlNet modules!')
+                emit(f'*** WARNING: Deep scan not checked, but found {len(cn_path)} ControlNet modules!')
 
 
         except CommError as e:
@@ -201,8 +253,6 @@ class Scaner(QRunnable):
             fname = get_user_data_path() / f'{self.system_name}.data'
             self.saver.store_data()
             self.saver.store_data(filename=fname)
-            # print(f"Data saved: {get_user_data_path() / f'{self.system_name}.data'}")
             self.signals.finished.emit(self.system_name)
         finally:
             print(f"Scanner complete {self.system_name}")
-            # self.finish_callback(self.system_name)

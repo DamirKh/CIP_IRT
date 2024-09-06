@@ -100,8 +100,11 @@ class LogWidget(QWidget):
         self.log(f"Total time = {stop_time - self._start_time}")
 
     def log(self, message: str = ''):
-        self._log.append(message)
-        self._time.append(time.time() - self._start_time)
+        if message.startswith('+') and len(self._log):
+            self._log[-1] = self._log[-1] + ' ' + message[1:]
+        else:
+            self._log.append(message)
+            self._time.append(time.time() - self._start_time)
         self.button.setText(message[:20])  # Update button label
 
     def show_log_viewer(self):

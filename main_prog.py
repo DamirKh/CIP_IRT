@@ -303,13 +303,15 @@ class MainWindow(QWidget):
                     continue
                 try:
                     print(f"Trying to scan {current_system.text()} via {self.entry_point[i].text()}...")
-                    self.log_buttons[i].start_log()
                     running_scanner = Scaner(
                         system_name=current_system.text(),
                         entry_point=self.entry_point[i].text(),
                         finish_callback=self.system_finished,
                         deep_scan=True,
                     )
+                    # self.log_buttons[i].start_log()
+
+                    running_scanner.signals.start.connect(self.log_buttons[i].start_log)
                     running_scanner.signals.finished.connect(self.system_finished)
                     running_scanner.signals.progress.connect(self.update_progress)
                     running_scanner.signals.module_found.connect(self.module_found)

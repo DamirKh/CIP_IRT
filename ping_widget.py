@@ -36,12 +36,10 @@ class PingWidget(QWidget):
         # Create a horizontal layout for the square labels
         square_layout = QHBoxLayout()
         # Add a spacer first
-        spacer_hor_left = QWidget()
-        spacer_hor_right = QWidget()
-        square_layout.addWidget(spacer_hor_left, stretch=1)
+        square_layout.addSpacing(size)
         for label in self.square_labels:
             square_layout.addWidget(label)
-        square_layout.addWidget(spacer_hor_right, stretch=1)
+        square_layout.addSpacing(size)
 
         self.setLayout(square_layout)
 
