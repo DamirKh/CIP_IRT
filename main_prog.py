@@ -320,6 +320,7 @@ class MainWindow(QWidget):
         for i, current_system in enumerate(self.system_name):
             if current_system.text() == system_name:
                 self.last_scan_time[i].setText(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                self.log_buttons[i].log('Scan finished')
                 self.log_buttons[i].stop_log()
                 break
 
@@ -329,6 +330,8 @@ class MainWindow(QWidget):
         for i, current_system in enumerate(self.system_name):
             if current_system.text() == system_name:
                 self.last_scan_time[i].setText(f'Error {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+                self.log_buttons[i].log(f'Communication Error {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+                self.log_buttons[i].stop_log()
                 break
 
     def update_progress(self, system_name: str, message: str):
@@ -463,7 +466,7 @@ class MainWindow(QWidget):
         # Create new widgets for the row
         self.system_name.append(QLabel(system_name))
         self.entry_point.append(QLabel(ip_address))
-        self.ping_status.append(PingWidget(q=7, size=15))
+        self.ping_status.append(PingWidget(q=4, size=15))
         self.last_scan_time.append(QLabel("UNKNOWN"))
         if last_scan_time:
             self.last_scan_time[-1].setText(str(last_scan_time))  # Checkit!
