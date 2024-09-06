@@ -41,7 +41,7 @@ class AnimatedLabel(QLabel):
 
 
 class CogWidget(QWidget):
-    def __init__(self, pool: QThreadPool):
+    def __init__(self, pool: QThreadPool, image_path):
         """
         """
         super().__init__()
@@ -49,7 +49,7 @@ class CogWidget(QWidget):
         self._checking_tread.progress.connect(self.update_cog_counter)
 
         # self.label_cog = QLabel('Cog')
-        self.label_cog = AnimatedLabel("asset/loading.gif", self)  # Replace with your GIF
+        self.label_cog = AnimatedLabel(image_path, self)  # Replace with your GIF
         self.label_cog_counter = QLabel('0')
 
         # Create a horizontal layout for the square labels

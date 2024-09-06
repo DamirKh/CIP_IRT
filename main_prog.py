@@ -204,7 +204,7 @@ class MainWindow(QWidget):
             top_layout.addWidget(spacer_hor, stretch=1)
 
             # Add cog widget
-            self.cog_widget = CogWidget(self.threadpool)
+            self.cog_widget = CogWidget(self.threadpool, os.path.join(asset_dir, "loading.gif"))
             top_layout.addWidget(self.cog_widget, stretch=0)
 
             # Add a button to show data directory
