@@ -154,8 +154,8 @@ class DataPreviewWidget(QWidget):
         self.table_view.setEditTriggers(QTableView.EditTrigger.AllEditTriggers)  # Allow editing
         # Hide the row headers (vertical header)
         # self.table_view.verticalHeader().setVisible(False)
-        self.table_view.doubleClicked.connect(self.on_cell_clicked)
-        # self.table_view.clicked.connect(self.on_cell_clicked)
+        # self.table_view.doubleClicked.connect(self.on_cell_clicked)
+        self.table_view.clicked.connect(self.on_cell_clicked)
 
         # Create the data model
         self.data_model: DataModel = DataModel(data, self._comment_columns)
@@ -235,9 +235,10 @@ class DataPreviewWidget(QWidget):
                 return
 
             print(f"comment editor")
-            comment = self.data_model.data(index,  role = Qt.ItemDataRole.DisplayRole)
+            # comment = self.data_model.data(index,  role = Qt.ItemDataRole.DisplayRole)
+            comment = global_data.current_comment_saver.get_comment(serial_number)
 
-            editor = CommentEditor()
+            editor = CommentEditor(hint = f"Comment for module {serial_number}")
             editor.set_text(comment)
             result = editor.exec()
             if result:
@@ -557,10 +558,10 @@ class DataModel(QAbstractTableModel):
 
 
 class CommentEditor(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, hint = "Comment"):
         super().__init__(parent)
-        self.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint)
-
+        # self.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint)
+        self.setWindowTitle(hint)
         self.textEdit = QTextEdit()
         self.button_cancel = QPushButton("cancel")
         self.button_cancel.clicked.connect(self.reject)
@@ -573,6 +574,7 @@ class CommentEditor(QDialog):
         button_layout.addWidget(self.button_save)
 
         layout = QVBoxLayout()
+        # layout.addWidget(QLabel(hint))
         layout.addWidget(self.textEdit)
         layout.addLayout(button_layout)
 

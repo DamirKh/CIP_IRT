@@ -82,7 +82,7 @@ def load_data(path):
     data = pd.concat(data_frames, ignore_index=False)
 
     # adding comments
-    fname = get_user_data_path() / 'comments.pkl'
+    fname = get_user_data_path() / 'comments.txt'
     comments = global_data.comment_saver_cls(fname=fname)
     comments.load()
     global_data.current_comment_saver = comments
@@ -91,7 +91,7 @@ def load_data(path):
     # debug injection  001aa5ef
     # global_data.current_comment_saver.set_comment('001aa5ef', 'This is a comment for BP 001aa5ef')
 
-    data['comment'] = data['serial'].map(comments.sn.get).fillna(data['comment'])
+    data['comment'] = data['serial'].map(comments.get_comment).fillna(data['comment'])
 
     return data
 
