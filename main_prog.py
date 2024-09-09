@@ -40,7 +40,8 @@ from version import rev
 from saver import get_user_data_path
 # from scanner import PreScaner as Scaner
 from scanner import Scaner
-from global_data import global_data_obj
+import global_data
+from global_data import global_data_cls
 
 import preview_data
 
@@ -70,15 +71,27 @@ def load_data(path):
         file_path = os.path.join(path, file)
 
         # Load data from the file
-        global_data = global_data_obj(fname=file_path)
-        global_data.restore_data()
-        df = pd.DataFrame.from_dict(global_data.module, orient='index')
+        global_data_obj = global_data_cls(fname=file_path)
+        global_data_obj.restore_data()
+        df = pd.DataFrame.from_dict(global_data_obj.module, orient='index')
 
         # Append the DataFrame to the list
         data_frames.append(df)
 
     # Concatenate the list of DataFrames into a single DataFrame
     data = pd.concat(data_frames, ignore_index=False)
+
+    # adding comments
+    fname = get_user_data_path() / 'comments.pkl'
+    comments = global_data.comment_saver_cls(fname=fname)
+    comments.load()
+    global_data.current_comment_saver = comments
+
+    data['comment'] = list('' for _ in range(len(data.index)))
+    # debug injection  001aa5ef
+    # global_data.current_comment_saver.set_comment('001aa5ef', 'This is a comment for BP 001aa5ef')
+
+    data['comment'] = data['serial'].map(comments.sn.get).fillna(data['comment'])
 
     return data
 

@@ -18,14 +18,14 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QMenu,
     QHeaderView, QMessageBox, QDialogButtonBox, QComboBox, QGroupBox, QLineEdit, QGridLayout, QCheckBox, QDialog,
-    QFileDialog,
+    QFileDialog, QTextEdit,
 )
-from PyQt6 import QtGui, QtWidgets
+from PyQt6 import QtGui, QtWidgets, QtCore
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize, pyqtSignal
 
-from global_data import global_data_obj
 from saver import get_user_data_path
+import global_data
 from user_data import basedir, asset_dir
 
 
@@ -47,18 +47,25 @@ class ConfigureDialog(QDialog):
         column_layout = QGridLayout()
 
         # Create labels, checkboxes, and line edits
-        for i, column_name in enumerate(self.data_model._data.columns):
-            label = QLabel(column_name)
-            check_box = QCheckBox()
-            check_box.setChecked(self.parent().column_visibility[i])
-            check_box.stateChanged.connect(lambda state, col=i: self.toggle_column_visibility(col, state))
-            filter_edit = QLineEdit()
-            filter_edit.setText(self.data_model._filters[i])
-            filter_edit.textChanged.connect(lambda text, col=i: self.update_filter(col, text))
+        try:
+            for i, column_name in enumerate(self.data_model._data.columns):
+                label = QLabel(column_name)
+                check_box = QCheckBox()
+                check_box.setChecked(self.parent().column_visibility[i])
+                check_box.stateChanged.connect(lambda state, col=i: self.toggle_column_visibility(col, state))
+                filter_edit = QLineEdit()
+                filter_edit.setText(self.data_model._filters[i])
+                filter_edit.textChanged.connect(lambda text, col=i: self.update_filter(col, text))
 
-            column_layout.addWidget(label, i, 0)
-            column_layout.addWidget(check_box, i, 1)
-            column_layout.addWidget(filter_edit, i, 2)
+                column_layout.addWidget(label, i, 0)
+                column_layout.addWidget(check_box, i, 1)
+                column_layout.addWidget(filter_edit, i, 2)
+        except IndexError as e:
+            QMessageBox.critical(self, "Error", f"Configuration dialog error: {e}\n"
+                                                f"Delete the file \n{self.parent().settings_file}\n\n"
+                                                f"Now programm will be aborted!\n\n"
+                                                "Sorry.")
+            raise e
 
         column_group.setLayout(column_layout)
         main_layout.addWidget(column_group, 0, 0, 1, 2)
@@ -126,11 +133,19 @@ class ConfigureDialog(QDialog):
 class DataPreviewWidget(QWidget):
     finished = pyqtSignal()
 
-    def __init__(self, data, parent=None, settings_file="data_preview_settings.pkl"):
+    def __init__(self, data: pd.DataFrame, parent=None, settings_file="data_preview_settings.pkl"):
         super().__init__(parent)
 
         self.setWindowTitle("Data Viewer")
         self._column_width = {}
+
+        self._comment_columns = []
+        # Get column names as a list
+        column_names = data.columns.tolist()
+        for index, name in enumerate(column_names):
+            if 'comment' in name:
+                self._comment_columns.append(index)
+        print(self._comment_columns)
 
         # Create the table view and set editability
         self.table_view = QTableView()
@@ -139,9 +154,11 @@ class DataPreviewWidget(QWidget):
         self.table_view.setEditTriggers(QTableView.EditTrigger.AllEditTriggers)  # Allow editing
         # Hide the row headers (vertical header)
         # self.table_view.verticalHeader().setVisible(False)
+        self.table_view.doubleClicked.connect(self.on_cell_clicked)
+        # self.table_view.clicked.connect(self.on_cell_clicked)
 
         # Create the data model
-        self.data_model: DataModel = DataModel(data)
+        self.data_model: DataModel = DataModel(data, self._comment_columns)
         self.table_view.setModel(self.data_model)
 
         # Load view settings from file (if exists)
@@ -210,14 +227,34 @@ class DataPreviewWidget(QWidget):
             self.data_model._apply_filter(column_index, saved_filter)
 
 
+    def on_cell_clicked(self, index):
+        if index.column() in self._comment_columns and index.row()!=0:
+            row = index.row()-1
+            serial_number = self.data_model.filtered_data.iloc[row, self.data_model.filtered_data.columns.get_loc('serial')]
+            if not serial_number:
+                return
+
+            print(f"comment editor")
+            comment = self.data_model.data(index,  role = Qt.ItemDataRole.DisplayRole)
+
+            editor = CommentEditor()
+            editor.set_text(comment)
+            result = editor.exec()
+            if result:
+                print(f"save changed comment")
+                self.data_model.setComment(serial_number, editor.get_text())
+        else:
+            # may be copy content of the cell into clipboard? TODO
+            return
+
+
+
     def on_filter_changed(self, column_index, text):
         self.data_model._apply_filter(column_index, text)
-
 
     def column_resized(self, index, old_size, new_size):
         self._column_width[index] = new_size if new_size != 0 else old_size
         pass
-
 
     def show_configure_dialog(self):
         # dialog = ConfigureDialog(self.data_model, self)
@@ -376,13 +413,14 @@ class DataPreviewWidget(QWidget):
 
 
 class DataModel(QAbstractTableModel):
-    def __init__(self, data):
+    def __init__(self, data: pd.DataFrame, comment_in_columns = None):
         super().__init__()
         self._data = data
         # Apply filters to _data
         self.filtered_data = self._data  # no filters now
         self._filters = ['' for _ in range(data.shape[1])]
-        # self.column_visibility = [True for _ in range(data.shape[1])]  # init column visibility
+
+        self._comment_columns = comment_in_columns or []
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if index.row() == 0:  # First row (filter row) is always editable
@@ -405,7 +443,7 @@ class DataModel(QAbstractTableModel):
         return self._data.shape[1]
 
     def data(self, index, role):
-        if index.row() == 0 and role == Qt.ItemDataRole.DisplayRole:
+        if index.row() == 0 and role == Qt.ItemDataRole.DisplayRole:  # zero row
             try:
                 value = self._filters[index.column()]
             except IndexError:
@@ -436,11 +474,30 @@ class DataModel(QAbstractTableModel):
 
         return None
 
+    def setComment(self, serial: str, value: str):
+        # Find all rows with the same serial number
+        matching_rows = self._data[self._data['serial'] == serial].index
+
+        # Update the comment in all matching rows
+        self._data.loc[matching_rows, 'comment'] = value  # why the hell is that -1 ?
+        self._reapply_filters()
+        global_data.current_comment_saver.set_comment(serial, value)
+        global_data.current_comment_saver.save()
+
+
     def setData(self, index: QModelIndex, value, role: int = ...) -> bool:
+        # Edit filters
         if role == Qt.ItemDataRole.EditRole and index.row() == 0:
             self._apply_filter(index.column(), value)
             return True
+        # edit comments
+        if role == Qt.ItemDataRole.EditRole and index.column() in self._comment_columns:
+            return True
         return False
+
+    def _reapply_filters(self):
+        _unneeded_filter = self._filters[0]
+        self._apply_filter(0, _unneeded_filter)
 
     def _apply_filter(self, column_index: int, filter_value: str):
         """Applies a filter to the specified column."""
@@ -461,7 +518,9 @@ class DataModel(QAbstractTableModel):
                     if filter_terms:
                         filter_mask = False
                         for term in filter_terms:
-                            filter_mask = filter_mask | self.filtered_data.iloc[:, i].astype(str).str.contains(term, case=False, regex=False)
+                            filter_mask = filter_mask | self.filtered_data.iloc[:, i].astype(str).str.contains(term,
+                                                                                                               case=False,
+                                                                                                               regex=False)
                             # print(term)
                         self.filtered_data = self.filtered_data[filter_mask]
 
@@ -488,12 +547,42 @@ class DataModel(QAbstractTableModel):
         # filtered by value in this column highlighted
         elif role == Qt.ItemDataRole.BackgroundRole and orientation == Qt.Orientation.Horizontal:
             try:
-                if self._filters[section]:
+                if self._filters[section]:  # filter applied
                     return QtGui.QColor("lightgrey")
+                if section in self._comment_columns:  # editable column with comment
+                    return QtGui.QColor("lightblue")
             except IndexError:
                 pass
         return None
 
+
+class CommentEditor(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint)
+
+        self.textEdit = QTextEdit()
+        self.button_cancel = QPushButton("cancel")
+        self.button_cancel.clicked.connect(self.reject)
+
+        self.button_save = QPushButton("Save")
+        self.button_save.clicked.connect(self.accept)
+
+        button_layout = QHBoxLayout()  # Horizontal layout for buttons
+        button_layout.addWidget(self.button_cancel)
+        button_layout.addWidget(self.button_save)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.textEdit)
+        layout.addLayout(button_layout)
+
+        self.setLayout(layout)
+
+    def set_text(self, text):
+        self.textEdit.setPlainText(text)
+
+    def get_text(self):
+        return self.textEdit.toPlainText()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

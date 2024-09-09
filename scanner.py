@@ -5,7 +5,7 @@ from pprint import pprint
 from PyQt6.QtCore import QThread, pyqtSignal, QRunnable, pyqtSlot, QObject
 from scanner_lib import scan_cn, scan_bp, CommError, get_module_sn, get_backplane_sn
 
-from global_data import global_data_obj
+from global_data import global_data_cls
 from saver import get_user_data_path
 
 # global_data.restore_data()
@@ -102,7 +102,7 @@ class Scaner(QRunnable):
         self.signals = ScannerSignals()
         utc_time = datetime.now(timezone.utc).strftime(TIME_FORMAT)
         fname = get_user_data_path() / 'prev' / f'{self.system_name}.{utc_time}.data'
-        self.saver = global_data_obj(fname=fname)  # check it
+        self.saver = global_data_cls(fname=fname)  # check it
         self.controlnet_modules_serial = set([])
         self.backplane_serial = set([])
         # self.finish_callback = finish_callback

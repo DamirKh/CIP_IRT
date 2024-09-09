@@ -3,7 +3,37 @@ import pickle
 from copy import deepcopy
 
 
-class global_data_obj(object):
+class comment_saver_cls(object):
+    def __init__(self, fname='comments.data'):
+        self._fname = fname
+        self.sn = {}
+
+    def get_comment(self, sn: str):
+        c = self.sn.get(sn, "")
+        return c
+
+    def set_comment(self, sn: str, comment: str):
+        self.sn[sn] = comment
+
+    def save(self, filename = None):
+        fname = filename or self._fname
+        with open(fname, 'wb') as file:
+            pickle.dump(self.sn, file)
+        print(f"Comments saved in {fname}")
+
+    def load(self, filename = None):
+        fname = filename or self._fname
+        try:
+            with open(fname, 'rb') as file:
+                self.sn = pickle.load(file)
+        except pickle.PickleError as e:
+            print(f'Error loading comments '
+                  f'{e} from file {fname}')
+        except FileNotFoundError:
+            print(f"No {fname} yet! Let's create one")
+            self.save(filename=fname)
+
+class global_data_cls(object):
     def __init__(self, fname='global.data'):
         self.__fname = fname
         self.entry_point = {}
@@ -58,7 +88,9 @@ class global_data_obj(object):
             return data
 
 
-global_data = global_data_obj()
+global_data = global_data_cls()
+
+current_comment_saver = None
 
 blank_module = {
     "system": None,
