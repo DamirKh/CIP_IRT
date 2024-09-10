@@ -21,8 +21,8 @@ from PyQt6.QtWidgets import (
     QFileDialog, QTextEdit,
 )
 from PyQt6 import QtGui, QtWidgets, QtCore
-from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize, pyqtSignal
+from PyQt6.QtGui import QAction, QIcon, QColor
+from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel, QPoint, QSize, pyqtSignal, QVariant
 
 from saver import get_user_data_path
 import global_data
@@ -145,7 +145,7 @@ class DataPreviewWidget(QWidget):
         for index, name in enumerate(column_names):
             if 'comment' in name:
                 self._comment_columns.append(index)
-        print(self._comment_columns)
+        # print(self._comment_columns)
 
         # Create the table view and set editability
         self.table_view = QTableView()
@@ -228,8 +228,8 @@ class DataPreviewWidget(QWidget):
 
 
     def on_cell_clicked(self, index):
+        row = index.row() - 1
         if index.column() in self._comment_columns and index.row()!=0:
-            row = index.row()-1
             serial_number = self.data_model.filtered_data.iloc[row, self.data_model.filtered_data.columns.get_loc('serial')]
             if not serial_number:
                 return
@@ -238,7 +238,7 @@ class DataPreviewWidget(QWidget):
             # comment = self.data_model.data(index,  role = Qt.ItemDataRole.DisplayRole)
             comment = global_data.current_comment_saver.get_comment(serial_number)
 
-            editor = CommentEditor(hint = f"Comment for module {serial_number}")
+            editor = CommentEditor(parent=self, hint = f"Comment for module {serial_number}")
             editor.set_text(comment)
             result = editor.exec()
             if result:
@@ -246,6 +246,28 @@ class DataPreviewWidget(QWidget):
                 self.data_model.setComment(serial_number, editor.get_text())
         else:
             # may be copy content of the cell into clipboard? TODO
+            header_text = self.table_view.model().headerData(
+                index.column(),
+                Qt.Orientation.Horizontal,
+                Qt.ItemDataRole.DisplayRole
+            )
+            content = self.data_model.filtered_data.iloc[
+                row, self.data_model.filtered_data.columns.get_loc(header_text)]
+
+            print(content)
+            match header_text:
+                case 'path':  # looking for parent and neighborhood of clicked module
+                    # print('Click on path')
+                    if type(content) == type(""):
+                        # assert type(content) == type("")
+                        _l = content.split('/')[:-1]
+                        up_path = '/'.join(_l)
+                        self.data_model.setHighlight(column=header_text, value=up_path)
+                    else:
+                        pass
+                case _:
+                    self.data_model.dropHighlight()
+
             return
 
 
@@ -422,6 +444,7 @@ class DataModel(QAbstractTableModel):
         self._filters = ['' for _ in range(data.shape[1])]
 
         self._comment_columns = comment_in_columns or []
+        self.highlighted = None
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if index.row() == 0:  # First row (filter row) is always editable
@@ -464,8 +487,14 @@ class DataModel(QAbstractTableModel):
                 return str(value)
             else:
                 return ""  # Or return None if you prefer
+        if self.highlighted is not None:
+            if role == Qt.ItemDataRole.BackgroundRole and self.filtered_data.index[index.row() - 1] in self.highlighted: # TODO move this into setHighLight
+                # Highlight the cell with light yellow
 
-        # Ensure EditRole is only for the filter row
+                return QVariant(QtGui.QColor('lightyellow'))
+            return QVariant()  # Return an empty variant for other roles
+
+            # Ensure EditRole is only for the filter row
         if role == Qt.ItemDataRole.EditRole and index.row() == 0:
             value = self._filters[index.column()]
             return str(value)
@@ -480,15 +509,37 @@ class DataModel(QAbstractTableModel):
         matching_rows = self._data[self._data['serial'] == serial].index
 
         # Update the comment in all matching rows
-        self._data.loc[matching_rows, 'comment'] = value  # why the hell is that -1 ?
+        self._data.loc[matching_rows, 'comment'] = value
         self._reapply_filters()
         global_data.current_comment_saver.set_comment(serial, value)
         global_data.current_comment_saver.save()
 
 
+    def dropHighlight(self):
+        self.highlighted = None
+        self._reapply_filters()
+
+    def setHighlight(self, column: str, value: str):
+        """
+        Highlights rows where the specified column contains the given value.
+
+        Args:
+            column (str): The name of the column to search in.
+            value (str): The value to search for within the column.
+        """
+        # Use .str.contains() to find rows containing the value
+        matching_rows = self.filtered_data[self.filtered_data[column].astype(str).str.contains(value)].index
+        # print(matching_rows)
+        self.highlighted = matching_rows
+        self._reapply_filters()
+        # Update the comment in all matching rows
+        # self._data.loc[matching_rows, 'comment'] = value
+
+
     def setData(self, index: QModelIndex, value, role: int = ...) -> bool:
         # Edit filters
         if role == Qt.ItemDataRole.EditRole and index.row() == 0:
+            self.dropHighlight()
             self._apply_filter(index.column(), value)
             return True
         # edit comments
@@ -509,7 +560,7 @@ class DataModel(QAbstractTableModel):
             if filter_value:
                 if filter_value == "*EMPTY*":
                     # Filter for empty cells
-                    self.filtered_data = self.filtered_data[self.filtered_data.iloc[:, i].isnull()]
+                    self.filtered_data = self.filtered_data[self.filtered_data.iloc[:, i].isnull() & (self.filtered_data.iloc[:, i].astype(str).str.strip() == '')]
                 elif filter_value == "*NOT_EMPTY*":
                     # Filter for non-empty cells
                     self.filtered_data = self.filtered_data[~self.filtered_data.iloc[:, i].isnull()]

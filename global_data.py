@@ -44,7 +44,11 @@ class comment_saver_cls(object):
             str: The comment associated with the serial number, or an empty
                   string if not found.
         """
+        if sn is None:
+            return None
         comment_lines = self.sn.get(sn, [])
+        if len(comment_lines) == 0:
+            return None
         return "\n".join(comment_lines)
 
     def set_comment(self, sn: str, comment: str):
@@ -71,7 +75,7 @@ class comment_saver_cls(object):
                 file.write(f"{sn}\n")
                 for line in comment_lines:
                     file.write(f"  {line}\n")
-        print(f"Comments saved in {fname}")
+        # print(f"Comments saved in {fname}")
 
     def load(self, filename: str = None):
         """
