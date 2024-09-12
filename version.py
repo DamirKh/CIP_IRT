@@ -1,2 +1,2 @@
 # global revision
-rev = '0.17'
+rev = '0.17.bugfix'

@@ -155,7 +155,7 @@ class DataPreviewWidget(QWidget):
         # Hide the row headers (vertical header)
         # self.table_view.verticalHeader().setVisible(False)
         # self.table_view.doubleClicked.connect(self.on_cell_clicked)
-        self.table_view.clicked.connect(self.on_cell_clicked)
+        # self.table_view.clicked.connect(self.on_cell_clicked)  # BUG
 
         # Create the data model
         self.data_model: DataModel = DataModel(data, self._comment_columns)
@@ -228,6 +228,8 @@ class DataPreviewWidget(QWidget):
 
 
     def on_cell_clicked(self, index):
+        if index.row() == 0:
+            return
         row = index.row() - 1
         if index.column() in self._comment_columns and index.row()!=0:
             serial_number = self.data_model.filtered_data.iloc[row, self.data_model.filtered_data.columns.get_loc('serial')]
