@@ -145,7 +145,6 @@ class DataPreviewWidget(QWidget):
         for index, name in enumerate(column_names):
             if 'comment' in name:
                 self._comment_columns.append(index)
-        # print(self._comment_columns)
 
         # Create the table view and set editability
         self.table_view = QTableView()
@@ -155,7 +154,7 @@ class DataPreviewWidget(QWidget):
         # Hide the row headers (vertical header)
         # self.table_view.verticalHeader().setVisible(False)
         # self.table_view.doubleClicked.connect(self.on_cell_clicked)
-        # self.table_view.clicked.connect(self.on_cell_clicked)  # BUG
+        self.table_view.clicked.connect(self.on_cell_clicked)
 
         # Create the data model
         self.data_model: DataModel = DataModel(data, self._comment_columns)
@@ -231,7 +230,7 @@ class DataPreviewWidget(QWidget):
         if index.row() == 0:
             return
         row = index.row() - 1
-        if index.column() in self._comment_columns and index.row()!=0:
+        if index.column() in self._comment_columns:
             serial_number = self.data_model.filtered_data.iloc[row, self.data_model.filtered_data.columns.get_loc('serial')]
             if not serial_number:
                 return
@@ -247,29 +246,20 @@ class DataPreviewWidget(QWidget):
                 print(f"save changed comment")
                 self.data_model.setComment(serial_number, editor.get_text())
         else:
-            # may be copy content of the cell into clipboard? TODO
+            # may be copy content of the cell into clipboard?
             header_text = self.table_view.model().headerData(
                 index.column(),
                 Qt.Orientation.Horizontal,
                 Qt.ItemDataRole.DisplayRole
             )
-            content = self.data_model.filtered_data.iloc[
-                row, self.data_model.filtered_data.columns.get_loc(header_text)]
+            cell_content = self.data_model.data(index, Qt.ItemDataRole.DisplayRole)
 
-            print(content)
+            print(cell_content)
             match header_text:
                 case 'path':  # looking for parent and neighborhood of clicked module
-                    # print('Click on path')
-                    if type(content) == type(""):
-                        # assert type(content) == type("")
-                        _l = content.split('/')[:-1]
-                        up_path = '/'.join(_l)
-                        self.data_model.setHighlight(column=header_text, value=up_path)
-                    else:
-                        pass
+                    print('Click on path')
                 case _:
-                    self.data_model.dropHighlight()
-
+                    pass
             return
 
 
@@ -283,9 +273,9 @@ class DataPreviewWidget(QWidget):
 
     def show_configure_dialog(self):
         # dialog = ConfigureDialog(self.data_model, self)
-        self.configure_dialog = ConfigureDialog(self.data_model, self)
-        self.configure_dialog.filterChanged.connect(self.on_filter_changed)
-        self.configure_dialog.exec()
+        configure_dialog = ConfigureDialog(self.data_model, self)
+        configure_dialog.filterChanged.connect(self.on_filter_changed)
+        configure_dialog.exec()
 
     def save_column_widths(self):
         """Returns a list of column widths."""
@@ -446,7 +436,7 @@ class DataModel(QAbstractTableModel):
         self._filters = ['' for _ in range(data.shape[1])]
 
         self._comment_columns = comment_in_columns or []
-        self.highlighted = None
+        # self.highlighted = None
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if index.row() == 0:  # First row (filter row) is always editable
@@ -454,7 +444,6 @@ class DataModel(QAbstractTableModel):
                     Qt.ItemFlag.ItemIsEnabled
                     | Qt.ItemFlag.ItemIsEditable
                     | Qt.ItemFlag.ItemIsSelectable
-                # | Qt.ItemFlag.ItemIsDragEnabled
             )
         else:  # All other rows are read-only
             return (
@@ -489,14 +478,8 @@ class DataModel(QAbstractTableModel):
                 return str(value)
             else:
                 return ""  # Or return None if you prefer
-        if self.highlighted is not None:
-            if role == Qt.ItemDataRole.BackgroundRole and self.filtered_data.index[index.row() - 1] in self.highlighted: # TODO move this into setHighLight
-                # Highlight the cell with light yellow
 
-                return QVariant(QtGui.QColor('lightyellow'))
-            return QVariant()  # Return an empty variant for other roles
-
-            # Ensure EditRole is only for the filter row
+        # Ensure EditRole is only for the filter row
         if role == Qt.ItemDataRole.EditRole and index.row() == 0:
             value = self._filters[index.column()]
             return str(value)
@@ -516,32 +499,10 @@ class DataModel(QAbstractTableModel):
         global_data.current_comment_saver.set_comment(serial, value)
         global_data.current_comment_saver.save()
 
-
-    def dropHighlight(self):
-        self.highlighted = None
-        self._reapply_filters()
-
-    def setHighlight(self, column: str, value: str):
-        """
-        Highlights rows where the specified column contains the given value.
-
-        Args:
-            column (str): The name of the column to search in.
-            value (str): The value to search for within the column.
-        """
-        # Use .str.contains() to find rows containing the value
-        matching_rows = self.filtered_data[self.filtered_data[column].astype(str).str.contains(value)].index
-        # print(matching_rows)
-        self.highlighted = matching_rows
-        self._reapply_filters()
-        # Update the comment in all matching rows
-        # self._data.loc[matching_rows, 'comment'] = value
-
-
     def setData(self, index: QModelIndex, value, role: int = ...) -> bool:
         # Edit filters
         if role == Qt.ItemDataRole.EditRole and index.row() == 0:
-            self.dropHighlight()
+            # self.dropHighlight()
             self._apply_filter(index.column(), value)
             return True
         # edit comments
