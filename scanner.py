@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from pprint import pprint
 
 from PyQt6.QtCore import QThread, pyqtSignal, QRunnable, pyqtSlot, QObject
+from pycomm3 import ResponseError
+
 from scanner_lib import scan_cn, scan_bp, CommError, get_module_sn, get_backplane_sn
 
 from global_data import global_data_cls
@@ -63,7 +65,7 @@ class PreScaner(QThread):
                     if len(controlnet_nodes) > 1:
                         for bp, _path in cn_modules_paths.items():
                             level1_bp = scan_bp(cip_path=_path, p=self._progress_update)
-        except CommError as e:
+        except (CommError, ResponseError) as e:
             self.communication_error.emit(str(e))
             pass
 
@@ -243,12 +245,17 @@ class Scaner(QRunnable):
             if not self.deep_scan and len(cn_path):
                 emit(f'*** WARNING: Deep scan not checked, but found {len(cn_path)} ControlNet modules!')
 
-
         except CommError as e:
-            self.signals.communication_error.emit(self.system_name)
+            self.signals.communication_error.emit(f"Communication Error while scanning {self.system_name}")
+            self.signals.communication_error.emit(f"{e}")
             # self.saver.flush()
             # self.saver.restore_data()
-            pass
+        except ResponseError as e:
+            self.signals.communication_error.emit(f"Response Error while scanning {self.system_name}")
+            self.signals.communication_error.emit(f"{e}")
+        except Exception as e:
+            self.signals.communication_error.emit(f"Unexpected exception while scanning {self.system_name}")
+            self.signals.communication_error.emit(f"{e}")
         else:
             fname = get_user_data_path() / f'{self.system_name}.data'
             self.saver.store_data()

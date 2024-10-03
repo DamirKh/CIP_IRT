@@ -88,7 +88,7 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
     this_flex_response = False
 
     with CIPDriver(cip_path) as entry_point_module_driver:
-        # p(entry_point_module_driver)
+        p(entry_point_module_driver)
 
         entry_point_module = entry_point_module_driver.generic_message(**cip_request.who_connected)
         epm = MyModuleIdentityObject.decode(entry_point_module.value)
@@ -102,15 +102,18 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
             if epm['product_code'] in ethernet_module:
                 pass
             if epm['product_code'] in flex_adapter:
-                this_flex_response = entry_point_module_driver.generic_message(**cip_request.flex_info)
-                p(f'Flex adapter at {cip_path}')
+                try:
+                    this_flex_response = entry_point_module_driver.generic_message(**cip_request.flex_info)
+                    p(f'Flex adapter at {cip_path}')
+                except (ResponseError, CommError) as e:
+                    p(f"Error communicating Flex ControlNet adapter {e}")
 
         this_bp_response = entry_point_module_driver.generic_message(**cip_request.bp_info_connected)
         bp_as_module = new_blank_module()
 
         if this_bp_response.error:
             # BackPlane response not supported
-            _serial_inverted = int(epm['serial'], 16)  ^ 0xFFFFFFFF
+            _serial_inverted = int(epm['serial'], 16) ^ 0xFFFFFFFF
             this_bp_sn = f"{_serial_inverted:0>8x}"
             bp_as_module["serial"] = this_bp_sn
             bp_as_module["size"] = "UNKNOWN"
@@ -147,7 +150,7 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
             bp_as_module["path"] = f"{path_left_strip(cip_path)}/bp"
         module_found(bp_as_module)
 
-        print(f'BackPlane: {bp_as_module}')
+        # print(f'BackPlane: {bp_as_module}')
 
         ## ###
         if this_flex_response:
@@ -156,7 +159,10 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
             # b'\x01\x00\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # IB32 module
             # b'\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # OB32 module
             # Split into pieces of 2 bytes
-            f_modules = [this_flex_response.value[i:i + 2] for i in range(0, len(this_flex_response.value), 2)]
+            # DEBUG ONLY CODE !!
+            # DEBUG_this_flex_response_value = b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules # comment in prod
+            # f_modules = [DEBUG_this_flex_response_value[i:i + 2] for i in range(0, len(this_flex_response.value), 2)]         # comment in prod
+            f_modules = [this_flex_response.value[i:i + 2] for i in range(0, len(this_flex_response.value), 2)]                 # uncomment in prod
             for _slot, _module in enumerate(f_modules):
                 if _module == b'\x00\x0f':
                     break

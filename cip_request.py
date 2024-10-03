@@ -49,7 +49,7 @@ flex_info = {
     "instance": 0x01,
     # "attribute":0x0,
     "connected": True,
-    "unconnected_send": True,
+    "unconnected_send": False,
     "route_path": True,
     "name": "flex_modules_info",
 }
