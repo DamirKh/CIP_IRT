@@ -174,8 +174,12 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
                     f_mod["product_name"] = "IB32 Flex module"
                 elif _module == b'\x11\x02':
                     f_mod["product_name"] = "OB32 Flex module"
+                elif _module == b'\x81\x02':
+                    f_mod["product_name"] = "OB32 Flex module ??"
+                elif _module == b'\x91\x01':
+                    f_mod["product_name"] = "IB32 Flex module ??"
                 else:
-                    f_mod["product_name"] = f"UNKNOWN Flex module {_module:0>4x}"
+                    f_mod["product_name"] = f"UNKNOWN Flex module {_module}"
                 module_found(f_mod)
             return this_bp_sn, modules_in_bp, bp_as_module, cn_modules_paths
         ## ###
