@@ -178,6 +178,8 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
                     f_mod["product_name"] = "OB32 Flex module ??"
                 elif _module == b'\x91\x01':
                     f_mod["product_name"] = "IB32 Flex module ??"
+                elif _module == b' \x17':  # WARNING! Space!
+                    f_mod["product_name"] = "1794 4Ch 24V DC Isolated"
                 else:
                     f_mod["product_name"] = f"UNKNOWN Flex module {_module}"
                 module_found(f_mod)
@@ -288,97 +290,6 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
                 print(f"Can't communicate to {real_path}!     No more modules?")
                 driver.close()
                 break
-        # -------------------------------------------------------------------------------------- access to bp via cn
-        # else:
-        #     p(f'Scanning BackPlane at {cip_path}')
-        #     try:
-        #         with CIPDriver(f'{cip_path}') as entry_point_module_driver:
-        #             # pprint(entry_point_module_driver)
-        #             this_module_response: Tag = entry_point_module_driver.generic_message(**cip_request.who)
-        #             if this_module_response:
-        #                 this_module = MyModuleIdentityObject.decode(this_module_response.value)
-        #             else:
-        #                 raise CommError(f"Can't complete WHO request to {cip_path}")
-        #
-        #             # here we've got controlnet module by full cip path via controlnet
-        #             if this_module['product_code'] in controlnet_module:
-        #                 this_bp_response = entry_point_module_driver.generic_message(**cip_request.bp_info)
-        #                 if this_bp_response.error:
-        #                     # BackPlane response not supported. May be an old CN module o BP
-        #                     # need to generate some ID for  backplane
-        #                     # this_bp['serial'] = str(serial_unknown)
-        #                     pass
-        #                 else:
-        #                     this_bp = this_bp_response.value
-        #                     this_bp['serial'] = f'{this_bp['serial_no']:0>8x}'
-        #                     # global_data.bp[this_bp['serial']] = {
-        #                     #     'bp': this_bp,
-        #                     # }
-        #
-        #             if this_module['product_code'] in (flex_adapter,):
-        #                 this_flex_response = entry_point_module_driver.generic_message(**cip_request.flex_info)
-        #                 p(f'{format}Flex adapter at {cip_path}')
-        #                 pprint(this_flex_response.value)
-        #                 # b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules
-        #                 # b'\x01\x00\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # IB32 module
-        #                 # b'\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # OB32 module
-        #     except CommError:
-        #         print()
-        #         raise CommError(f"Can't communicate to {cip_path}!")
-        #     except AlreadyScanned:
-        #         pass
-        #
-        # if this_flex_response:  # TODO
-        #     global_data.cn_flex[this_module['serial']] = {
-        #         'adapter': this_module,
-        #         'modules': this_flex_response.value
-        #     }
-        #     return this_module
-        #
-        # this_bp['serial'] = this_bp.get('serial', str(serial_unknown))  # do nothing if bp serial set
-        # this_bp_sn = this_bp.get('serial')
-        # global_data.bp[this_bp_sn] = {
-        #     'bp': this_bp,
-        # }
-        # p('Backpane')
-        # p(this_bp)
-
-        # bp_as_module = new_blank_module()
-        # bp_as_module["serial"] = this_bp_sn
-        # bp_as_module["size"] = this_bp.get('size', None)
-        # bp_as_module["rev"] = f"{this_bp.get('major_rev', 0)}.{this_bp.get('minor_rev', 0)}"
-        # bp_as_module["major"] = this_bp.get('major_rev', 0)
-        # bp_as_module["minor"] = this_bp.get('minor_rev', 0)
-        # bp_as_module["product_name"] = "Backplane"
-        # bp_as_module["product_type"] = f"{this_bp.get('size', "UNKNOWN")} slots"
-        # # bp_as_module["path"] = f"{cip_path}/bp"
-        # _path = path_left_strip(cip_path)
-        # if _path[-1] == '/':
-        #     bp_as_module["path"] = f"{path_left_strip(cip_path)}bp"
-        # else:
-        #     bp_as_module["path"] = f"{path_left_strip(cip_path)}/bp"
-        #
-        #
-        # module_found(bp_as_module)
-        # bp_known_size = True if bp_as_module["size"] else False
-
-        # for slot in range(this_bp.get('size', 14)):
-        #     _communication_module_here = False
-        #
-        #     except ResponseError:
-        #         p(f'{format} !!! Module in slot {slot} may be broken')
-        #         modules_in_bp[slot] = None
-        #         continue
-        #     except CommError:
-        #         p(f'{format} !!! Module in slot {slot} may be broken')
-        #         modules_in_bp[slot] = None
-        #         continue
-        #     except AlreadyScanned:
-        #         break
-        #     # global_data.module[this_module['serial']] = this_module
-        #     driver.close()
-        #
-        # # global_data.bp[this_bp_sn].update(modules_in_bp)
     return this_bp_sn, modules_in_bp, bp_as_module, cn_modules_paths
 
 
