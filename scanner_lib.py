@@ -26,24 +26,33 @@ serial_unknown = serial_generator.SerialGenerator()
 long_path_error_values = b'\x18\x03\x01\x00', b'\x18\x03\x02\x00'  # empiric way
 
 
-class AlreadyScanned(Exception):
-    """Custom exception to indicate a backplane has already been scanned."""
+def flex_modules_decode(flex_respose):
+    names = {
+        b'\x01\x00': "IB32",
+        b'\x11\x02': "OB32",
+        b'\x81\x02': "OB32 ?",
+        b'\x91\x01': "IB32 ?",
+        b' \x17': "4 Ch 24V DC Isolated",  # WARNING! Space!
+        b'\x01\x17': "2 Ch Freq Input",
+        b'"\x17': "2 Ch in / 2 Ch out 24V DC Isolated",
+        b'\x9d\x01': "8 Ch 24V DC Electronically Fused Protected Output, Source",
+        b'\x00\x1c': "8 Ch Analog Input",
+        b'\x00\x02': "16 Ch NAMUR 8V DC Input/Counter",
+        b'\x01\x01': "4 Ch 24V DC Output, Source",
+        b'\x03\x1b': "1797 8 Ch 24V DC RTD/Thermocouple Analog Input",
+        b'\x02\x1b': "1794 8 Ch 24V DC RTD/Thermocouple Analog Input",
+        b'\x99\x01': "1794 8 Ch Relay Output, Sink/Source",
+        b'$\x19': "1794 8 Ch 24V DC Non-Isolated Voltage/Current Analog Input",
+    }
 
-    def __init__(self, serial):
-        super().__init__(f"Module with serial {serial} has already been scanned.")
-
-class ModuleUnavailable(Exception):
-    """Custom exception to indicate module unavailable."""
-
-    def __init__(self, path):
-        super().__init__(f"Module {path} unavailable")
-
-
-class BackplaneSerialNumberMissmatch(Exception):
-    """an exception occurs when the backplane serial number does not match the current serial number"""
-
-    def __init__(self, bp_serial_current, bp_serial_prev):
-        super().__init__(f"Backplane SN {bp_serial_current} != {bp_serial_prev}")
+    f_modules_codes = [flex_respose.value[i:i + 2] for i in
+                       range(0, len(flex_respose.value), 2)]
+    flex_modules = []
+    for _slot, _module in enumerate(f_modules_codes):
+        if _module == b'\x00\x0f':
+            break
+        flex_modules.append(names.get(_module, f"UNKNOWN Flex module {_module}"))
+    return flex_modules
 
 
 def get_module_sn(cip_path):
@@ -58,18 +67,24 @@ def get_module_sn(cip_path):
     module = MyModuleIdentityObject.decode(module_response.value)
     return module["serial"]
 
+
 def get_backplane_sn(cip_path):
     driver: CIPDriver = CIPDriver(cip_path)
     driver.open()
-    bp_response = driver.generic_message(**cip_request.bp_info)
-    if bp_response.error:  # let's try another way
-        bp_response = driver.generic_message(**cip_request.bp_info_connected)
-        if bp_response.error:
-            # raise ModuleUnavailable(cip_path)
-            return None
-    bp = bp_response.value
-    serial = f'{bp['serial_no']:0>8x}'
-    return serial
+    try:
+        bp_response = driver.generic_message(**cip_request.bp_info)
+        if bp_response.error:  # let's try another way
+            bp_response = driver.generic_message(**cip_request.bp_info_connected)
+            if bp_response.error:
+                # raise ModuleUnavailable(cip_path)
+                return None
+        bp = bp_response.value
+        serial = f'{bp['serial_no']:0>8x}'
+        return serial
+    except Exception as e:
+        print(e)
+        return None
+
 
 def path_left_strip(path: str) -> str:
     """
@@ -81,8 +96,8 @@ def path_left_strip(path: str) -> str:
     else:
         return f"/{'/'.join(_path)}"
 
-def scan_bp(cip_path, p=pprint, module_found=pprint):
 
+def scan_bp(cip_path, p=pprint, module_found=pprint):
     modules_in_bp = {}
     cn_modules_paths = {}
     this_flex_response = False
@@ -96,9 +111,9 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
             if epm['product_code'] in controlnet_module:
                 node_address_response = entry_point_module_driver.generic_message(**cip_request.cn_address)
                 if node_address_response:
-                    epm['cn_node']=node_address_response.value['cn_node_number1']
+                    epm['cn_node'] = node_address_response.value['cn_node_number1']
                 else:
-                    epm['cn_node']='UNKNOWN'
+                    epm['cn_node'] = 'UNKNOWN'
             if epm['product_code'] in ethernet_module:
                 pass
             if epm['product_code'] in flex_adapter:
@@ -148,40 +163,19 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
             bp_as_module["path"] = f"{path_left_strip(cip_path)}bp"
         else:
             bp_as_module["path"] = f"{path_left_strip(cip_path)}/bp"
-        module_found(bp_as_module)
+        if not this_bp_response.error:  # Only real device
+            module_found(bp_as_module)
 
         # print(f'BackPlane: {bp_as_module}')
 
         ## ###
         if this_flex_response:
-            # pprint(this_flex_response.value)
-            # b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules
-            # b'\x01\x00\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # IB32 module
-            # b'\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # OB32 module
-            # Split into pieces of 2 bytes
-            # DEBUG ONLY CODE !!
-            # DEBUG_this_flex_response_value = b'\x01\x00\x11\x02\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f\x00\x0f'  # 2 modules # comment in prod
-            # f_modules = [DEBUG_this_flex_response_value[i:i + 2] for i in range(0, len(this_flex_response.value), 2)]         # comment in prod
-            f_modules = [this_flex_response.value[i:i + 2] for i in range(0, len(this_flex_response.value), 2)]                 # uncomment in prod
-            for _slot, _module in enumerate(f_modules):
-                if _module == b'\x00\x0f':
-                    break
+            for _slot, _module in enumerate(flex_modules_decode(this_flex_response)):
                 f_mod = new_blank_module()
                 f_mod["product_type"] = "FlexIO"
                 f_mod['slot'] = _slot
                 f_mod['path'] = f"{path_left_strip(cip_path)}/bp/{_slot}"
-                if _module == b'\x01\x00':
-                    f_mod["product_name"] = "IB32 Flex module"
-                elif _module == b'\x11\x02':
-                    f_mod["product_name"] = "OB32 Flex module"
-                elif _module == b'\x81\x02':
-                    f_mod["product_name"] = "OB32 Flex module ??"
-                elif _module == b'\x91\x01':
-                    f_mod["product_name"] = "IB32 Flex module ??"
-                elif _module == b' \x17':  # WARNING! Space!
-                    f_mod["product_name"] = "1794 4Ch 24V DC Isolated"
-                else:
-                    f_mod["product_name"] = f"UNKNOWN Flex module {_module}"
+                f_mod["product_name"] = _module
                 module_found(f_mod)
             return this_bp_sn, modules_in_bp, bp_as_module, cn_modules_paths
         ## ###
@@ -198,10 +192,10 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
         real_path = f'{cip_path}/bp/{current_slot}'
         path2save = path_left_strip(real_path)
 
-        if real_path == '192.168.0.124/bp/2/cnet/27':  # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
+        if real_path == '11.90.82.193/bp/5/cnet/6':  # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
             pass  # trap for debug. edit string above and set breakpoint here
 
-        if current_slot == entry_point_module_in_bp_addr:  #entry point module in this current_slot
+        if current_slot == entry_point_module_in_bp_addr:  # entry point module in this current_slot
             epm['path'] = path2save
             epm['slot'] = current_slot
             epm['product_name'] = tool.remove_control_chars(epm['product_name'])
@@ -231,7 +225,6 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
                 modules_all.add(module_serial_number)
                 # ----- log
                 p(f"[{current_slot:0>2}] = {this_module['product_name']}")
-
 
                 if this_module['product_type#'] in communication_module:
                     if this_module['product_code'] in controlnet_module:

@@ -91,7 +91,7 @@ class ScannerSignals(QObject):
 
 
 class Scaner(QRunnable):
-    """A scanner thread to perform modules scan"""
+    """A scanner thread to perform systems scan"""
 
     def __init__(self, system_name: str, entry_point: str, finish_callback,  deep_scan: bool = True):
         super(Scaner, self).__init__()
@@ -160,7 +160,7 @@ class Scaner(QRunnable):
                 emit('***************** Scanning ControlNet Level 0 goes next...')
                 for cn_serial, cip_path in cn_path.items():  # scans controlnets via each CN module in entry point Backplane
                     try:
-                        controlnet_nodes, cn_modules_paths = scan_cn(cip_path,
+                        controlnet_nodes, communication_modules_paths = scan_cn(cip_path,
                                                                      p=self._progress_update,
                                                                      current_cn_node_update=self._current_cn_node_update
                                                                      )
@@ -170,7 +170,7 @@ class Scaner(QRunnable):
                     else:
                         self.saver.cn_nodes.append(controlnet_nodes)
                         if len(controlnet_nodes) > 1:  # more than one node in CN network found
-                            for bp, p in cn_modules_paths.items():
+                            for bp, p in communication_modules_paths.items():
                                 controlnet_serial = get_module_sn(p)
                                 backplane_serial = get_backplane_sn(p)
                                 if controlnet_serial and controlnet_serial in self.controlnet_modules_serial:
@@ -206,6 +206,9 @@ class Scaner(QRunnable):
                                         except CommError:
                                             # print(f'Error scanning ControlNet {cip_path} !')
                                             emit(f'Error scanning ControlNet {cip_path} !')
+                                        except Exception as e:
+                                            emit(f'Unknown error while scanning {cip_path}:')
+                                            emit(f'{e}')
                                         else:
                                             self.saver.cn_nodes.append(controlnet_nodes)
                                             if len(controlnet_nodes_l1) > 1:  # more than one node in CN network found
