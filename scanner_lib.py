@@ -192,7 +192,7 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
         real_path = f'{cip_path}/bp/{current_slot}'
         path2save = path_left_strip(real_path)
 
-        if real_path == '11.90.82.193/bp/5/cnet/6':  # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
+        if real_path == '11.120.66.1/bp/5/cnet/4/bp/0':  # and slot == 2:  # Exam: '192.168.0.124/bp/2/cnet/3'  '192.168.0.124'  '192.168.0.124/bp/2/cnet/3' 192.168.0.124/bp/2/cnet/1/bp/9
             pass  # trap for debug. edit string above and set breakpoint here
 
         if current_slot == entry_point_module_in_bp_addr:  # entry point module in this current_slot
@@ -207,6 +207,7 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
             driver: CIPDriver = CIPDriver(real_path)
             driver.open()
             this_module_response = driver.generic_message(**cip_request.who)
+            # this_module_response = driver.generic_message(**cip_request.who_connected)
             if this_module_response:  # this block executed for every real module ######################################
                 this_module = MyModuleIdentityObject.decode(this_module_response.value)
 
