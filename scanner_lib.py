@@ -270,8 +270,10 @@ def scan_bp(cip_path, p=pprint, module_found=pprint):
                 else:
                     # bp size unknown
                     driver.close()
-                    break  # TODO
-                    pass
+                    if this_bp_response.value == b'\x12\x03\x00':  # communication module to PointIO chassy
+                        continue
+                    if this_bp_response.value == b'\x04\x02\x00': # no more PointIO modules
+                        break  # TODO
                 continue
         except ResponseError:
             p(f"Error communicating {real_path}")
