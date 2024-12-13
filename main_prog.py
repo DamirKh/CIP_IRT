@@ -443,6 +443,10 @@ class MainWindow(QWidget):
         if result != 1:  # due to some bug compare to hardcoded value
             print("Update Rejected!")
             return
+        else:
+            print("Update accepted")
+            self.entry_point[index].setText(edit_system.ip_widget.get_ip())
+
 
     def delete_row(self, row_index):
         # Remove widgets from the grid layout

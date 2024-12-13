@@ -179,6 +179,9 @@ class AddSystemDialog(QDialog):
 class EditSystemDialog(AddSystemDialog):
     def __init__(self, system_name, ip_addr, parent=None,  deep_scan=None):
         super().__init__(parent=parent)
+        self.setWindowTitle("Edit Entry Point")
+        self.button_add.setText("Accept")
+
         self.system_name._input.setText(system_name)
         self.system_name.setEnabled(False)
 
