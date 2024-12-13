@@ -39,7 +39,7 @@ from log_widget import LogWidget
 from version import rev
 from saver import get_user_data_path
 # from scanner import PreScaner as Scaner
-from scanner import Scaner
+from scanner import Scanner
 import global_data
 from global_data import global_data_cls
 
@@ -316,10 +316,9 @@ class MainWindow(QWidget):
                     continue
                 try:
                     print(f"Trying to scan {current_system.text()} via {self.entry_point[i].text()}...")
-                    running_scanner = Scaner(
+                    running_scanner = Scanner(
                         system_name=current_system.text(),
                         entry_point=self.entry_point[i].text(),
-                        finish_callback=self.system_finished,
                         deep_scan=True,
                     )
                     # self.log_buttons[i].start_log()
